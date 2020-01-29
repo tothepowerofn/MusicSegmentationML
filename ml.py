@@ -25,11 +25,10 @@ def stupidSimpleRNNModel(inputDimension, numPerRecurrentLayer, numRecurrentLayer
     model = Model(inputs=inputLayer, outputs=outputLayer)
     return model
 
-def trainWithModelSingleSong(model, features, classifications):
+def trainWithModelSingleSong(model, features, classifications, epochs):
     x_train = features[newaxis,:,:]
     y_train = to_categorical(classifications)[newaxis, :,:,]
     print(x_train.shape)
     print(y_train.shape)
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-    history = model.fit(x_train, y_train,
-                        epochs=4)
+    history = model.fit(x_train, y_train, epochs=epochs)

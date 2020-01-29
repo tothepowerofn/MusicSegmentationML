@@ -8,6 +8,7 @@ from feat_extract import generateTrainingDataForAudio
 from ml import stupidSimpleRNNModel
 from ml import trainWithModelSingleSong
 from feat_extract import getFeatsAndClassificationFromFile
+from numpy import zeros, newaxis
 
 def junk():
     audio_path = "test.wav"
@@ -43,6 +44,10 @@ def junk():
 generateTrainingDataForAudio("wavs/test.wav", "annotations/test-annotation.csv", "features/test-feats.csv")
 #trainWithModelSingleSong(1,1,1)
 feats, classifications = getFeatsAndClassificationFromFile("features/test-feats.csv")
-model = stupidSimpleRNNModel(inputDimenstion=20, numPerRecurrentLayer=10, numRecurrentLayers=10, outputDimension=4)
+model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=4)
 model.summary()
-trainWithModelSingleSong(model, feats, classifications)
+trainWithModelSingleSong(model, feats, classifications, 30)
+predictionss = model.predict(feats[newaxis,:,:])
+for predictions in predictionss:
+    for prediciton in predictions:
+        print(prediciton)
