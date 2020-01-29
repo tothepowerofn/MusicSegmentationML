@@ -25,4 +25,3 @@ def saveMFCCForWavs(wavFolderPath, outFolderPath):
             print(outFolderPath + filename + "-mfcc.csv")
             saveMFCCForWav(os.path.join(wavFolderPath, filename),outFolderPath + "/" + os.path.splitext(filename)[0] + "-mfcc.csv")
 
-
