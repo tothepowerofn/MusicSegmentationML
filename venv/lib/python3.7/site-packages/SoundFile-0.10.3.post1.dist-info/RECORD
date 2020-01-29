@@ -1,0 +1,12 @@
+SoundFile-0.10.3.post1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+SoundFile-0.10.3.post1.dist-info/LICENSE,sha256=sJQxr0adqKmH7C8Fn0eLBCnqxidxbhMkjViAqGn_IvI,1507
+SoundFile-0.10.3.post1.dist-info/METADATA,sha256=9mqpQ1YaCJY29X48EFdNnwof4xyLhJPw1qKooub_V_U,11127
+SoundFile-0.10.3.post1.dist-info/RECORD,,
+SoundFile-0.10.3.post1.dist-info/WHEEL,sha256=4mu9sXMpLj8cQvqhxZtrPkdBJH6OCbRoxIcVSzHfY6Y,1674
+SoundFile-0.10.3.post1.dist-info/top_level.txt,sha256=Tj_0Vt4DBIkZRETu3hVFttfv39v8vHG3H2-ngR1FC4k,37
+__pycache__/_soundfile.cpython-37.pyc,,
+__pycache__/soundfile.cpython-37.pyc,,
+_soundfile.py,sha256=c9uiOw1KR6KHHef095p22DDNGYxBPv6ZtDZhw1MfRPk,5430
+_soundfile_data/COPYING,sha256=rQHqXNJ1X2BIODyNVMiEWc1vyxd1fFyIkvjF6gYPYUA,26518
+_soundfile_data/libsndfile.dylib,sha256=s9E0bpMal5GvNM3ntzAdRwo4TuSW6m2R91_ZU5TgBlE,1920004
+soundfile.py,sha256=8hQRVTWgzhD6E9RrrUhKZ-8JPI9njs5vvDQItQCRznM,57107

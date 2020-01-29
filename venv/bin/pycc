@@ -1,0 +1,3 @@
+#!/Users/nathan/Library/Mobile Documents/com~apple~CloudDocs/WorshipAI/venv/bin/python
+from numba.pycc import main
+main()
