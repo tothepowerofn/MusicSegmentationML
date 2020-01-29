@@ -51,3 +51,7 @@ def generateTrainingDataForAudio(wavPath, annotationPath, featureOutputPath, S=N
     classifications[lastHop:numWavSamples, 0] = classifications[lastHop-1, 0]
     feats = np.hstack((mfccs, classifications))
     np.savetxt(featureOutputPath, feats, delimiter=",")
+
+def getFeatsAndClassificationFromFile(filepath):
+    feats = genfromtxt(filepath, delimiter=',')
+    return (feats[:,0:feats.shape[1]-1], feats[:,feats.shape[1]-1:feats.shape[1]])
