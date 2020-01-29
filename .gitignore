@@ -2,5 +2,7 @@ __pycache__/
 venv/
 wavs/
 mfccs/
+annotations/
+features/
 .idea/
 .DS_Store

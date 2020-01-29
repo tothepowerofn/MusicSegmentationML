@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import librosa.display
 
 from feat_extract import saveMFCCForWavs
-
+from feat_extract import generateTrainingDataForAudio
 
 def junk():
     audio_path = "test.wav"
@@ -36,4 +36,5 @@ def junk():
     #save the extracted features as csv
     np.savetxt("test.csv", mfccs.T, delimiter=",")
 
-saveMFCCForWavs("wavs", "mfccs")
+#saveMFCCForWavs("wavs", "mfccs")
+generateTrainingDataForAudio("wavs/test.wav", "annotations/test-annotation.csv", "features/test-feats.csv")
