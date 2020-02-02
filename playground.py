@@ -5,9 +5,13 @@ import librosa.display
 
 from feat_extract import saveMFCCForWavs
 from feat_extract import generateTrainingDataForAudio
+from feat_extract import generateTrainingDataForAudios
 from ml import stupidSimpleRNNModel
 from ml import trainWithModelSingleSong
-from feat_extract import getFeatsAndClassificationFromFile
+from ml import trainModel
+from ml import trainModelWithGenerator
+from feat_extract import getFeatsAndClassificationsFromFile
+from feat_extract import trainingGeneratorFromFolder
 from numpy import zeros, newaxis
 
 def junk():
@@ -41,13 +45,18 @@ def junk():
     np.savetxt("test.csv", mfccs.T, delimiter=",")
 
 #saveMFCCForWavs("wavs", "mfccs")
-generateTrainingDataForAudio("wavs/test.wav", "annotations/test-annotation.csv", "features/test-feats.csv")
+#generateTrainingDataForAudio("wavs/test.wav", "annotations/test-annotation.csv", "features/test-feats.csv")
+generateTrainingDataForAudios("wavs", "annotations", "features")
 #trainWithModelSingleSong(1,1,1)
-feats, classifications = getFeatsAndClassificationFromFile("features/test-feats.csv")
+
+#getFeatsAndClassificationFromFolder("features")
+
+feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
 model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=4)
 model.summary()
-trainWithModelSingleSong(model, feats, classifications, 30)
-predictionss = model.predict(feats[newaxis,:,:])
-for predictions in predictionss:
-    for prediciton in predictions:
-        print(prediciton)
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features",  10)
+# trainModel(model, feats, classifications, 30)
+# predictionss = model.predict(feats)
+# for predictions in predictionss:
+#     for prediction in predictions:
+#         print(prediction)

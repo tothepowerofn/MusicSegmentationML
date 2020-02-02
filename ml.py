@@ -4,6 +4,7 @@ from keras.layers import (BatchNormalization, Conv1D, Dense, Input,
     TimeDistributed, Activation, Bidirectional, SimpleRNN, GRU, LSTM)
 from keras.utils import to_categorical
 from numpy import zeros, newaxis
+from feat_extract import getNumberOfFeatFiles
 
 #https://github.com/JackBurdick/ASR_DL/blob/master/sample_models.py roughly used as a starting point
 def stupidSimpleRNNModel(inputDimension, numPerRecurrentLayer, numRecurrentLayers, outputDimension, numConvFilters=250, kernelSize=11):
@@ -32,3 +33,16 @@ def trainWithModelSingleSong(model, features, classifications, epochs):
     print(y_train.shape)
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
     history = model.fit(x_train, y_train, epochs=epochs)
+
+def trainModel(model, features, classifications, epochs):
+    x_train = features
+    y_train = classifications
+    print(x_train.shape)
+    print(y_train.shape)
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    history = model.fit(x_train, y_train, epochs=epochs)
+
+def trainModelWithGenerator(model, generator, featsFolderPath, epochs):
+    numberOfFeatFiles = getNumberOfFeatFiles(featsFolderPath)
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    history = model.fit(generator(featsFolderPath), epochs=epochs, steps_per_epoch = numberOfFeatFiles)
