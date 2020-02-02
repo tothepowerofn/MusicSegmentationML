@@ -51,10 +51,11 @@ generateTrainingDataForAudios("wavs", "annotations", "features")
 
 #getFeatsAndClassificationFromFolder("features")
 
-feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
-model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=4)
+#feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
+numSegmentTypes = 7
+model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
 model.summary()
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features",  10)
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "stupidSimpleRNN_1", 10)
 # trainModel(model, feats, classifications, 30)
 # predictionss = model.predict(feats)
 # for predictions in predictionss:

@@ -42,7 +42,9 @@ def trainModel(model, features, classifications, epochs):
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
     history = model.fit(x_train, y_train, epochs=epochs)
 
-def trainModelWithGenerator(model, generator, featsFolderPath, epochs):
+def trainModelWithGenerator(model, generator, featsFolderPath, modelSaveName, epochs):
     numberOfFeatFiles = getNumberOfFeatFiles(featsFolderPath)
+    print(numberOfFeatFiles)
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
     history = model.fit(generator(featsFolderPath), epochs=epochs, steps_per_epoch = numberOfFeatFiles)
+    model.save(modelSaveName)
