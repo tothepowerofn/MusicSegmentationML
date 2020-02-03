@@ -1,7 +1,7 @@
 import numpy as np
 from keras.models import load_model
 from feat_extract import getFeatsAndClassificationsFromFile
-model = load_model('dumbSimpleRNN_Big')
+model = load_model('dumbSimpleRNN_Long')
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 feats, classifications = getFeatsAndClassificationsFromFile("features/King-of-my-Heart_1-18-2020-feats.csv")
 predictionss = model.predict(feats)

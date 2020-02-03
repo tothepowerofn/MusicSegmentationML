@@ -47,12 +47,10 @@ def generateTrainingDataForAudio(wavPath, annotationPath, featureOutputPath, S=N
     mfccs = extractMFCCForWav(wavPath, S, n_mfcc, dct_type, norm, lifter, **kwargs)
     annotationData = genfromtxt(annotationPath, delimiter=',')
     numWavSamples = mfccs.shape[0]
-    print(numWavSamples)
     classifications = np.zeros(shape=(numWavSamples, 1))
     lastHop = 0
     for segment in annotationData:
         currentHop = timestampToHop(segment[0], sampleRate, hopLength)
-        print(currentHop)
         classifications[lastHop:currentHop, 0] = segment[1]
         lastHop = currentHop
     classifications[lastHop:numWavSamples, 0] = classifications[lastHop-1, 0]
@@ -72,7 +70,8 @@ def getFeatsAndClassificationsFromFile(filepath):
     feats = genfromtxt(filepath, delimiter=',')
     features = feats[:,0:feats.shape[1]-1]
     classifications = feats[:,feats.shape[1]-1:feats.shape[1]]
-    return (features[newaxis, :, :], to_categorical(classifications[newaxis, :, :]))
+    #np.savetxt(filepath + "-class.csv", to_categorical(classifications), delimiter=",")
+    return (features[newaxis, :, :], to_categorical(classifications)[newaxis, :, :])
 
 def trainingGeneratorFromFolder(folderpath):
     # stackedFeatures = np.stack((getFeatsAndClassificationsFromFile(folderpath + "/" + filename)[0] if filename.endswith("-feats.csv") else None for filename in os.listdir(folderpath)),axis=0)

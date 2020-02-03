@@ -47,7 +47,7 @@ def junk():
 
 #saveMFCCForWavs("wavs", "mfccs")
 #generateTrainingDataForAudio("wavs/test.wav", "annotations/test-annotation.csv", "features/test-feats.csv")
-generateTrainingDataForAudios("wavs", "annotations", "features")
+#generateTrainingDataForAudios("wavs", "annotations", "features", n_mfcc=8)
 #trainWithModelSingleSong(1,1,1)
 
 #getFeatsAndClassificationFromFolder("features")
@@ -55,9 +55,9 @@ generateTrainingDataForAudios("wavs", "annotations", "features")
 #feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
 numSegmentTypes = 6
 #model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
-model = dumbSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=200, numRecurrentLayers=3, outputDimension=numSegmentTypes)
+model = dumbSimpleRNNModel(inputDimension=8, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes, kernelSize=5)
 model.summary()
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "dumbSimpleRNN_Big", 10)
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "dumbSimpleRNN_Long_kern5_150_2", 20)
 # trainModel(model, feats, classifications, 30)
 # predictionss = model.predict(feats)
 # for predictions in predictionss:

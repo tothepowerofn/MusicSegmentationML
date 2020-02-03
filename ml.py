@@ -53,7 +53,7 @@ def trainWithModelSingleSong(model, features, classifications, epochs):
     y_train = to_categorical(classifications)[newaxis, :,:,]
     print(x_train.shape)
     print(y_train.shape)
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     history = model.fit(x_train, y_train, epochs=epochs)
 
 def trainModel(model, features, classifications, epochs):
@@ -61,14 +61,14 @@ def trainModel(model, features, classifications, epochs):
     y_train = classifications
     print(x_train.shape)
     print(y_train.shape)
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     history = model.fit(x_train, y_train, epochs=epochs)
 
 def trainModelWithGenerator(model, generator, featsFolderPath, modelSaveName, epochs):
     numberOfFeatFiles = getNumberOfFeatFiles(featsFolderPath)
     print(numberOfFeatFiles)
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    checkpoint = ModelCheckpoint(modelSaveName, monitor='accuracy', verbose=1, save_best_only=True, mode='max')
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
+    checkpoint = ModelCheckpoint(modelSaveName, monitor='categorical_accuracy', verbose=1, save_best_only=True, mode='max')
     callbacks_list = [checkpoint]
     history = model.fit(generator(featsFolderPath), epochs=epochs, steps_per_epoch = numberOfFeatFiles)
     model.save(modelSaveName)
