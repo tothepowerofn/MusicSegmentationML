@@ -55,9 +55,9 @@ def junk():
 #feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
 numSegmentTypes = 6
 #model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
-model = dumbSimpleRNNModel(inputDimension=8, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes, kernelSize=5)
+model = stupidSimpleRNNModel(inputDimension=8, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes, kernelSize=5)
 model.summary()
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "dumbSimpleRNN_Long_kern5_150_2", 20)
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "stupidSimpleRNNModel_kern5_150_2", 20)
 # trainModel(model, feats, classifications, 30)
 # predictionss = model.predict(feats)
 # for predictions in predictionss:
