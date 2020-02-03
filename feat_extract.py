@@ -9,11 +9,15 @@ import math
 
 
 #Extracts MFCC features into a numpy array according to the parameters given.
-def extractMFCCForWav(wavPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, **kwargs):
+def extractMFCCForWav(wavPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize = True, **kwargs):
     audio_path = wavPath
     sound, sampleRate = librosa.load(audio_path)
     mfccs = librosa.feature.mfcc(sound, sampleRate, S, n_mfcc, dct_type, norm, lifter, **kwargs)
-    return mfccs.T
+    retVal = mfccs.T
+    if normalize:
+        return retVal / retVal.max(axis = 0)
+    else:
+        return retVal
 
 #Saves MFCC features to a .csv file according to the parameters given.
 def saveMFCCForWav(wavPath, outpath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, **kwargs):

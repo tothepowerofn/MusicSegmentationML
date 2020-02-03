@@ -26,6 +26,27 @@ def stupidSimpleRNNModel(inputDimension, numPerRecurrentLayer, numRecurrentLayer
     model = Model(inputs=inputLayer, outputs=outputLayer)
     return model
 
+def dumbSimpleRNNModel(inputDimension, numPerRecurrentLayer, numRecurrentLayers, outputDimension, numConvFilters=250, kernelSize=11):
+    #Input Layer
+    inputLayer = Input(shape=(None, inputDimension))
+    #Convolutional Layer
+    convLayer = Conv1D(filters=numConvFilters, kernel_size=kernelSize,
+                       strides=1,
+                       padding='same',
+                       activation='elu')(inputLayer)
+    batchNormConvLayer = BatchNormalization()(convLayer)
+    currentRecurrentLayerInput = batchNormConvLayer
+    for i in range(0, numRecurrentLayers):
+        rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(currentRecurrentLayerInput)
+        batchNormRNNLayer = BatchNormalization()(rnnLayer)
+        currentRecurrentLayerInput = batchNormRNNLayer
+    timeDistLayer = TimeDistributed(Dense(outputDimension))(currentRecurrentLayerInput)
+    outputLayer = Activation('softmax', name='softmax')(timeDistLayer)
+
+    #Defining the actual model
+    model = Model(inputs=inputLayer, outputs=outputLayer)
+    return model
+
 def trainWithModelSingleSong(model, features, classifications, epochs):
     x_train = features[newaxis,:,:]
     y_train = to_categorical(classifications)[newaxis, :,:,]

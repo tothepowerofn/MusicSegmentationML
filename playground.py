@@ -7,6 +7,7 @@ from feat_extract import saveMFCCForWavs
 from feat_extract import generateTrainingDataForAudio
 from feat_extract import generateTrainingDataForAudios
 from ml import stupidSimpleRNNModel
+from ml import dumbSimpleRNNModel
 from ml import trainWithModelSingleSong
 from ml import trainModel
 from ml import trainModelWithGenerator
@@ -53,9 +54,10 @@ generateTrainingDataForAudios("wavs", "annotations", "features")
 
 #feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
 numSegmentTypes = 7
-model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
+#model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
+model = dumbSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
 model.summary()
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "stupidSimpleRNN_1", 10)
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "dumbSimpleRNN_1", 10)
 # trainModel(model, feats, classifications, 30)
 # predictionss = model.predict(feats)
 # for predictions in predictionss:
