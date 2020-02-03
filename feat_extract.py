@@ -42,8 +42,14 @@ def timestampToHop(time, sampleRate, hopLength):
     return int(math.ceil(timestampToSampleNumber(time, sampleRate)/hopLength))
 
 def generateTrainingDataForAudio(wavPath, annotationPath, featureOutputPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, **kwargs):
-    hopLength = 512 #TODO: WARNING! Change this to be based on kwargs
-    sampleRate = 22050 #TODO: WARNING! Change this to be based on kwargs
+    hopLength = 512  # TODO: WARNING! Change this to be based on kwargs
+    sampleRate = 22050  # TODO: WARNING! Change this to be based on kwargs
+    for key, value in kwargs.items():
+        if key is "hop_length": #this is also usually 512
+            print("setting hop length")
+            hopLength = value
+        elif key is "n_fft": #this is usually 2048
+            print("setting window size")
     mfccs = extractMFCCForWav(wavPath, S, n_mfcc, dct_type, norm, lifter, **kwargs)
     annotationData = genfromtxt(annotationPath, delimiter=',')
     numWavSamples = mfccs.shape[0]

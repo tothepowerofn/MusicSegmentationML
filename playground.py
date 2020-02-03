@@ -7,12 +7,14 @@ from feat_extract import saveMFCCForWavs
 from feat_extract import generateTrainingDataForAudio
 from feat_extract import generateTrainingDataForAudios
 from ml import stupidSimpleRNNModel
+from ml import stupidSimpleRNNModelTimeDisLess
 from ml import dumbSimpleRNNModel
 from ml import trainWithModelSingleSong
 from ml import trainModel
 from ml import trainModelWithGenerator
 from feat_extract import getFeatsAndClassificationsFromFile
 from feat_extract import trainingGeneratorFromFolder
+from keras.models import load_model
 from numpy import zeros, newaxis
 
 def junk():
@@ -45,21 +47,19 @@ def junk():
     #save the extracted features as csv
     np.savetxt("test.csv", mfccs.T, delimiter=",")
 
-#saveMFCCForWavs("wavs", "mfccs")
-#generateTrainingDataForAudio("wavs/test.wav", "annotations/test-annotation.csv", "features/test-feats.csv")
-#generateTrainingDataForAudios("wavs", "annotations", "features", n_mfcc=8)
-#trainWithModelSingleSong(1,1,1)
 
-#getFeatsAndClassificationFromFolder("features")
+#generateTrainingDataForAudios("wavs", "annotations", "features", hop_length=2048, n_fft=8192)
 
-#feats, classifications = getFeatsAndClassificationsFromFile("features/test-feats.csv")
 numSegmentTypes = 6
+load = True
+modelname = "stupidSimpleRNNModelTimeDistLess_kern11_200_3"
 #model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
-model = stupidSimpleRNNModel(inputDimension=8, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes, kernelSize=5)
-model.summary()
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", "stupidSimpleRNNModel_kern5_150_2", 20)
-# trainModel(model, feats, classifications, 30)
-# predictionss = model.predict(feats)
-# for predictions in predictionss:
-#     for prediction in predictions:
-#         print(prediction)
+
+if load:
+    model = load_model(modelname)
+else:
+    model = stupidSimpleRNNModelTimeDisLess(inputDimension=20, numPerRecurrentLayer=200, numRecurrentLayers=3,
+                                            outputDimension=numSegmentTypes)
+    model.summary()
+
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", modelname, 10)

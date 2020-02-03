@@ -1,0 +1,6 @@
+2/3/2020 @ 6:37pm ET:
+    Extracting with hop_length=2048 and n_fft=8192 with params
+    model = stupidSimpleRNNModelTimeDisLess(inputDimension=20, numPerRecurrentLayer=200, numRecurrentLayers=3,
+                                            outputDimension=numSegmentTypes)
+    Yielded accuracy in the mid-high 70's after 20 epochs
+    Probably (actually almost certainly) overfitting, but at least it learned something!
