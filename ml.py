@@ -66,23 +66,21 @@ def stupidSimpleRNNModelTimeDisLess(inputDimension, numPerRecurrentLayer, numRec
     model = Model(inputs=inputLayer, outputs=outputLayer)
     return model
 
-def model_v1(inputDimension, numPerRecurrentLayer, numRecurrentLayers, outputDimension, numConvFilters=250, kernelSize=11):
-    # Input Layer
+def modelV1(inputDimension, numPerRecurrentLayer, numRecurrentLayers, outputDimension, numConvFilters=250, kernelSize=11, stride=1):
+    #Input Layer
     inputLayer = Input(shape=(None, inputDimension))
-    # Convolutional Layer
+    #Convolutional Layer
     convLayer = Conv1D(filters=numConvFilters, kernel_size=kernelSize,
-                       strides=1,
-                       padding='same',
-                       # I think that 'same' is important to detecting "Intro" cues. See how Keras defines 'same'.
+                       strides=stride,
+                       padding='same', # I think that 'same' is important to detecting "Intro" cues. See how Keras defines 'same'.
                        activation='elu')(inputLayer)
     currentRecurrentLayerInput = convLayer
     for i in range(0, numRecurrentLayers):
-        rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
-            currentRecurrentLayerInput)
+        rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(currentRecurrentLayerInput)
         currentRecurrentLayerInput = rnnLayer
     outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(currentRecurrentLayerInput)
 
-    # Defining the actual model
+    #Defining the actual model
     model = Model(inputs=inputLayer, outputs=outputLayer)
     return model
 

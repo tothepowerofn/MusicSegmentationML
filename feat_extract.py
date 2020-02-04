@@ -117,6 +117,45 @@ class MFCCFeature:
                     self.songs[os.path.splitext(filename)[0]] = self.extractSingle(self.dataPath + "/" + filename)
             return self.songs
 
+class Pooling1DFeature: #this is NOT relate to max-pooling.
+    def __init__(self, featureToPool, numSamples):
+        self.featureToPool = featureToPool
+        self.numSamples = numSamples
+        if numSamples < 2:
+            raise Exception("You need to pool more than 1 sample! It makes no sense to pool 1 sample, just use the feature itself in that case!")
+        self.extractedFeatures = {}
+    def extractSingle(self, name):
+        featureDict = self.featureToPool.extract()
+        features = featureDict[name]
+        beginningPoolList = []
+        #pool beginning with 0 pad
+        for i in range(1, self.numSamples+1):
+            beginning = np.zeros((1, (self.numSamples - i)*features.shape[1]))
+            beginning = np.hstack((beginning, features[0:i,:].flatten()[None, :]))
+            beginningPoolList.append(beginning)
+            # print(beginning.shape)
+        beginningPool = np.stack(beginningPoolList, axis=1)
+        # for i in range(self.numSamples, features.shape[0]):
+        #     print(features[i-self.numSamples:i,:].flatten()[None, :].shape)
+
+        regularPool = np.stack((features[i-self.numSamples:i,:].flatten()[None, :] for i in range(self.numSamples, features.shape[0])), axis=1)
+        # print(beginningPool.shape)
+        # print(regularPool.shape)
+        pool = np.vstack([beginningPool[0], regularPool[0]])
+        # print(pool.shape)
+        return pool
+    def extract(self):
+        if self.extractedFeatures:
+            return self.extractedFeatures
+        else:
+            for name in self.featureToPool.extract().keys():
+                self.extractedFeatures[name] = self.extractSingle(name)
+            return self.extractedFeatures
+
+
+
+
+
 class AnnotatedSongLabeler:
     def __init__(self, dataPath, sample_rate, hop_length):
         self.sampleRate = sample_rate
@@ -145,14 +184,20 @@ class AnnotatedSongLabeler:
 
 
 
-def generateFeatures(labeler, *args):
+def generateLabeledFeatures(labeler, *args):
     dictList = []
+    generatedLabeledFeaturesDict = {}
     for feature in args:
         dictList.append(feature.extract())
     for name in labeler.getClassifiableDataNames():
         combinedFeatures = np.hstack((dict[name] for dict in dictList))
         combinedFeaturesAndClassifications = np.hstack((combinedFeatures, labeler.labelByName(name, combinedFeatures)))
-        print(combinedFeatures.shape)
+        generatedLabeledFeaturesDict[name] = combinedFeaturesAndClassifications
+    return generatedLabeledFeaturesDict
+
+def saveFeatures(generatedFeaturesDict, featureOutputFolderPath):
+    for name, features in generatedFeaturesDict.items():
+        np.savetxt(featureOutputFolderPath + "/" + name + "-feats.csv", features, delimiter=",")
 
 
 

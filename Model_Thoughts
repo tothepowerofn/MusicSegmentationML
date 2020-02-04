@@ -4,3 +4,27 @@
                                             outputDimension=numSegmentTypes)
     Yielded accuracy in the mid-high 70's after 20 epochs
     Probably (actually almost certainly) overfitting, but at least it learned something!
+
+2/4/2020 @1:23pm ET:
+    WOW! Pooling previous slices of input seems to really help! Again, still overfitting very likely, but cool!
+    1/2 [==============>...............] - ETA: 2s - loss: 0.2675 - categorical_accuracy: 0.9323
+    2/2 [==============================] - 4s 2s/step - loss: 0.3448 - categorical_accuracy: 0.9242
+
+    (Pooled 10x slices at 4096 hop 8192 fft)
+    _________________________________________________________________
+    Layer (type)                 Output Shape              Param #
+    =================================================================
+    input_1 (InputLayer)         (None, None, 200)         0
+    _________________________________________________________________
+    conv1d_1 (Conv1D)            (None, None, 250)         500250
+    _________________________________________________________________
+    gru_1 (GRU)                  (None, None, 100)         105300
+    _________________________________________________________________
+    gru_2 (GRU)                  (None, None, 100)         60300
+    _________________________________________________________________
+    softmax (Dense)              (None, None, 6)           606
+    =================================================================
+    Total params: 666,456
+    Trainable params: 666,456
+    Non-trainable params: 0
+    _________________________________________________________________
