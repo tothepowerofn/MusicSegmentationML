@@ -48,18 +48,18 @@ def junk():
     np.savetxt("test.csv", mfccs.T, delimiter=",")
 
 
-#generateTrainingDataForAudios("wavs", "annotations", "features", hop_length=2048, n_fft=8192)
+generateTrainingDataForAudios("wavs", "annotations", "features", hop_length=2048, n_fft=8192)
 
-numSegmentTypes = 6
-load = True
-modelname = "stupidSimpleRNNModelTimeDistLess_kern11_200_3"
-#model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
-
-if load:
-    model = load_model(modelname)
-else:
-    model = stupidSimpleRNNModelTimeDisLess(inputDimension=20, numPerRecurrentLayer=200, numRecurrentLayers=3,
-                                            outputDimension=numSegmentTypes)
-    model.summary()
-
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", modelname, 10)
+# numSegmentTypes = 6
+# load = True
+# modelname = "stupidSimpleRNNModelTimeDistLess_kern11_200_3"
+# #model = stupidSimpleRNNModel(inputDimension=20, numPerRecurrentLayer=150, numRecurrentLayers=2, outputDimension=numSegmentTypes)
+#
+# if load:
+#     model = load_model(modelname)
+# else:
+#     model = stupidSimpleRNNModelTimeDisLess(inputDimension=20, numPerRecurrentLayer=200, numRecurrentLayers=3,
+#                                             outputDimension=numSegmentTypes)
+#     model.summary()
+#
+# trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", modelname, 10)

@@ -62,6 +62,8 @@ def generateTrainingDataForAudio(wavPath, annotationPath, featureOutputPath, S=N
     classifications[lastHop:numWavSamples, 0] = classifications[lastHop-1, 0]
     feats = np.hstack((mfccs, classifications))
     np.savetxt(featureOutputPath, feats, delimiter=",")
+
+
 def generateTrainingDataForAudios(wavFolderPath, annotationFolderPath, featureOutputFolderPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, **kwargs):
     if not os.path.exists(featureOutputFolderPath):
         os.makedirs(featureOutputFolderPath)
@@ -70,6 +72,88 @@ def generateTrainingDataForAudios(wavFolderPath, annotationFolderPath, featureOu
         constructedFeatureOutputPath = featureOutputFolderPath + "/" + os.path.splitext(filename)[0] + "-feats.csv"
         if filename.endswith(".wav") and os.path.exists(constructedAnnotationPath):
             generateTrainingDataForAudio(wavFolderPath + "/" + filename, constructedAnnotationPath, constructedFeatureOutputPath, S, n_mfcc, dct_type, norm, lifter, **kwargs)
+
+class MFCCFeature:
+    def __init__(self, dataPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize = True, **kwargs):
+        self.S = S
+        self.n_mfcc = n_mfcc
+        self.dct_type = dct_type
+        self.norm = norm
+        self.lifter = lifter
+        self.normalize = True
+        self.kwargs = kwargs
+        self.dataPath = dataPath
+        self.songs = {}
+
+    def extractMFCCForWav(self,wavPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize=True, **kwargs):
+        audio_path = wavPath
+        sound, sampleRate = librosa.load(audio_path)
+        mfccs = librosa.feature.mfcc(sound, sampleRate, S, n_mfcc, dct_type, norm, lifter, **kwargs)
+        retVal = mfccs.T
+        print(("!", retVal.shape))
+        if normalize:
+            return retVal / retVal.max(axis=0)
+        else:
+            return retVal
+
+    def extractSingle(self, wavPath):
+        hopLength = 512  # TODO: WARNING! Change this to be based on kwargs
+        sampleRate = 22050  # TODO: WARNING! Change this to be based on kwargs
+        n_fft = 2048
+        for key, value in self.kwargs.items():
+            if key is "hop_length":  # this is also usually 512
+                hopLength = value
+            elif key is "n_fft":  # this is usually 2048
+                n_fft = value
+        mfccs = self.extractMFCCForWav(wavPath, self.S, self.n_mfcc, self.dct_type, self.norm, self.lifter, hop_length=hopLength, n_fft=n_fft)
+        return mfccs
+
+    def extract(self):
+        if(self.songs):
+            return self.songs
+        else:
+            for filename in os.listdir(self.dataPath):
+                if filename.endswith(".wav"):
+                    self.songs[os.path.splitext(filename)[0]] = self.extractSingle(self.dataPath + "/" + filename)
+            return self.songs
+
+class AnnotatedSongLabeler:
+    def __init__(self, dataPath, sample_rate, hop_length):
+        self.sampleRate = sample_rate
+        self.hopLength = hop_length
+        self.dataPath = dataPath
+
+    def getClassifiableDataNames(self):
+        songList = []
+        for filename in os.listdir(self.dataPath):
+            if filename.endswith("-annotation.csv"):
+                songList.append(os.path.basename(filename).split("-annotation.csv")[0])
+        return songList
+
+    def labelByName(self, songName, features):
+        annotationPath = self.dataPath + "/" + songName + "-annotation.csv"
+        annotationData = genfromtxt(annotationPath, delimiter=',')
+        numWavSamples = features.shape[0]
+        classifications = np.zeros(shape=(numWavSamples, 1))
+        lastHop = 0
+        for segment in annotationData:
+            currentHop = timestampToHop(segment[0], self.sampleRate, self.hopLength)
+            classifications[lastHop:currentHop, 0] = segment[1]
+            lastHop = currentHop
+        classifications[lastHop:numWavSamples, 0] = classifications[lastHop - 1, 0]
+        return classifications
+
+
+
+def generateFeatures(labeler, *args):
+    dictList = []
+    for feature in args:
+        dictList.append(feature.extract())
+    for name in labeler.getClassifiableDataNames():
+        combinedFeatures = np.hstack((dict[name] for dict in dictList))
+        combinedFeaturesAndClassifications = np.hstack((combinedFeatures, labeler.labelByName(name, combinedFeatures)))
+        print(combinedFeatures.shape)
+
 
 
 def getFeatsAndClassificationsFromFile(filepath):
