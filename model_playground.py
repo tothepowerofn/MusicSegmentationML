@@ -1,7 +1,7 @@
 from feat_extract import saveMFCCForWavs, AnnotatedSongLabeler, generateLabeledFeatures, Pooling1DFeature, saveFeatures
 from feat_extract import generateTrainingDataForAudio
 from feat_extract import generateTrainingDataForAudios
-from ml import stupidSimpleRNNModel
+from ml import stupidSimpleRNNModel, modelV4
 from ml import stupidSimpleRNNModelTimeDisLess
 from ml import dumbSimpleRNNModel
 from ml import trainWithModelSingleSong
@@ -17,13 +17,13 @@ from feat_extract import MFCCFeature
 
 numSegmentTypes = 6
 load = False
-modelname = "pooled_model_v1"
+modelname = "pooled_model_v4.h5"
 
 if load:
     model = load_model(modelname)
 else:
-    model = modelV1(inputDimension=200, numPerRecurrentLayer=100, numRecurrentLayers=2,
+    model = modelV4(inputDimension=200, numPerRecurrentLayer=75, numRecurrentLayers=2,
                                             outputDimension=numSegmentTypes, kernelSize=10, stride=1)
     model.summary()
 
-trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", modelname, 10)
+trainModelWithGenerator(model, trainingGeneratorFromFolder, "features", modelname, 30)

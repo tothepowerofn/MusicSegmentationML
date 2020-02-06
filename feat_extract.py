@@ -41,40 +41,8 @@ def timestampToSampleNumber(time, sampleRate):
 def timestampToHop(time, sampleRate, hopLength):
     return int(math.ceil(timestampToSampleNumber(time, sampleRate)/hopLength))
 
-def generateTrainingDataForAudio(wavPath, annotationPath, featureOutputPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, **kwargs):
-    hopLength = 512  # TODO: WARNING! Change this to be based on kwargs
-    sampleRate = 22050  # TODO: WARNING! Change this to be based on kwargs
-    for key, value in kwargs.items():
-        if key is "hop_length": #this is also usually 512
-            print("setting hop length")
-            hopLength = value
-        elif key is "n_fft": #this is usually 2048
-            print("setting window size")
-    mfccs = extractMFCCForWav(wavPath, S, n_mfcc, dct_type, norm, lifter, **kwargs)
-    annotationData = genfromtxt(annotationPath, delimiter=',')
-    numWavSamples = mfccs.shape[0]
-    classifications = np.zeros(shape=(numWavSamples, 1))
-    lastHop = 0
-    for segment in annotationData:
-        currentHop = timestampToHop(segment[0], sampleRate, hopLength)
-        classifications[lastHop:currentHop, 0] = segment[1]
-        lastHop = currentHop
-    classifications[lastHop:numWavSamples, 0] = classifications[lastHop-1, 0]
-    feats = np.hstack((mfccs, classifications))
-    np.savetxt(featureOutputPath, feats, delimiter=",")
-
-
-def generateTrainingDataForAudios(wavFolderPath, annotationFolderPath, featureOutputFolderPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, **kwargs):
-    if not os.path.exists(featureOutputFolderPath):
-        os.makedirs(featureOutputFolderPath)
-    for filename in os.listdir(wavFolderPath):
-        constructedAnnotationPath = annotationFolderPath + "/" + os.path.splitext(filename)[0] + "-annotation.csv"
-        constructedFeatureOutputPath = featureOutputFolderPath + "/" + os.path.splitext(filename)[0] + "-feats.csv"
-        if filename.endswith(".wav") and os.path.exists(constructedAnnotationPath):
-            generateTrainingDataForAudio(wavFolderPath + "/" + filename, constructedAnnotationPath, constructedFeatureOutputPath, S, n_mfcc, dct_type, norm, lifter, **kwargs)
-
 class MFCCFeature:
-    def __init__(self, dataPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize = True, **kwargs):
+    def __init__(self, featureName, dataPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize = True, **kwargs):
         self.S = S
         self.n_mfcc = n_mfcc
         self.dct_type = dct_type
@@ -84,8 +52,16 @@ class MFCCFeature:
         self.kwargs = kwargs
         self.dataPath = dataPath
         self.songs = {}
+        self.featureName = featureName
 
-    def extractMFCCForWav(self,wavPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize=True, **kwargs):
+    def copy(self, newName): #Initialize as newly named feature with old data
+        newInstance = MFCCFeature(self.featureName, self.dataPath, self.S, self.n_mfcc, self.dct_type, self.norm, self.lifter, self.normalize, self.kwargs)
+        newInstance.songs = self.songs
+        return newInstance
+    def getName(self):
+        return self.featureName
+
+    def extractMFCCForWav(self, wavPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize=True, **kwargs):
         audio_path = wavPath
         sound, sampleRate = librosa.load(audio_path)
         mfccs = librosa.feature.mfcc(sound, sampleRate, S, n_mfcc, dct_type, norm, lifter, **kwargs)
@@ -116,14 +92,32 @@ class MFCCFeature:
                 if filename.endswith(".wav"):
                     self.songs[os.path.splitext(filename)[0]] = self.extractSingle(self.dataPath + "/" + filename)
             return self.songs
+    def save(self, featureBasePath):
+        if not os.path.exists(featureBasePath):
+            os.makedirs(featureBasePath)
+        if not os.path.exists(featureBasePath + "/" + self.featureName):
+            os.makedirs(featureBasePath + "/" + self.featureName)
+        if not self.songs:
+            self.extract()
+        for name, features in self.songs.items():
+            np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
+
 
 class Pooling1DFeature: #this is NOT relate to max-pooling.
-    def __init__(self, featureToPool, numSamples):
+    def __init__(self, featureName, featureToPool, numSamples):
         self.featureToPool = featureToPool
         self.numSamples = numSamples
+        self.featureName = featureName
         if numSamples < 2:
             raise Exception("You need to pool more than 1 sample! It makes no sense to pool 1 sample, just use the feature itself in that case!")
         self.extractedFeatures = {}
+    def copy(self, newName): #Initialize as newly named feature with old data
+        newInstance = Pooling1DFeature(newName, self.featureToPool, self.numSamples)
+        newInstance.extractedFeatures = self.extractedFeatures
+        return newInstance
+    def getName(self):
+        return self.featureName
+
     def extractSingle(self, name):
         featureDict = self.featureToPool.extract()
         features = featureDict[name]
@@ -151,17 +145,21 @@ class Pooling1DFeature: #this is NOT relate to max-pooling.
             for name in self.featureToPool.extract().keys():
                 self.extractedFeatures[name] = self.extractSingle(name)
             return self.extractedFeatures
-
-
-
-
+    def save(self, featureBasePath):
+        if not os.path.exists(featureBasePath):
+            os.makedirs(featureBasePath)
+        if not os.path.exists(featureBasePath + "/" + self.featureName):
+            os.makedirs(featureBasePath + "/" + self.featureName)
+        if not self.extractedFeatures:
+            self.extract()
+        for name, features in self.extractedFeatures.items():
+            np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
 
 class AnnotatedSongLabeler:
     def __init__(self, dataPath, sample_rate, hop_length):
         self.sampleRate = sample_rate
         self.hopLength = hop_length
         self.dataPath = dataPath
-
     def getClassifiableDataNames(self):
         songList = []
         for filename in os.listdir(self.dataPath):
@@ -181,41 +179,78 @@ class AnnotatedSongLabeler:
             lastHop = currentHop
         classifications[lastHop:numWavSamples, 0] = classifications[lastHop - 1, 0]
         return classifications
+    def saveLabels(self, labelPath, featuresDictList):
+        if not os.path.exists(labelPath):
+            os.makedirs(labelPath)
+        for name in self.getClassifiableDataNames():
+            labels = self.labelByName(name, featuresDictList[0][1][name])
+            np.savetxt(labelPath + "/" + name + "-labels.csv", labels, delimiter=",")
 
 
-
-def generateLabeledFeatures(labeler, *args):
+def generateLabeledFeatures(labeler, featureList):
     dictList = []
     generatedLabeledFeaturesDict = {}
-    for feature in args:
-        dictList.append(feature.extract())
+    for feature in featureList:
+        dictList.append((feature.getName(), feature.extract()))
     for name in labeler.getClassifiableDataNames():
-        combinedFeatures = np.hstack((dict[name] for dict in dictList))
+        combinedFeatures = np.hstack((dict[name][1] for dict in dictList))
         combinedFeaturesAndClassifications = np.hstack((combinedFeatures, labeler.labelByName(name, combinedFeatures)))
         generatedLabeledFeaturesDict[name] = combinedFeaturesAndClassifications
     return generatedLabeledFeaturesDict
+
+def saveTrainingData(featureBasePath, featureList, labeler):
+    dictList = []
+    generatedLabeledFeaturesDict = {}
+    for feature in featureList:
+        dictList.append((feature.getName(), feature.extract()))
+        feature.save(featureBasePath)
+    labeler.saveLabels(featureBasePath + "/" + "labels", dictList)
 
 def saveFeatures(generatedFeaturesDict, featureOutputFolderPath):
     for name, features in generatedFeaturesDict.items():
         np.savetxt(featureOutputFolderPath + "/" + name + "-feats.csv", features, delimiter=",")
 
 
+class TrainingGenerator:
+    def __init__(self, featuresBasePath, labelsFolderName, featureFoldersList=None, coalesceInput=False):
+        self.featuresBasePath = featuresBasePath
+        self.labelsFolderName = labelsFolderName
+        self.featureFoldersList = featureFoldersList
+        self.coalesceInput = coalesceInput
+    def getNumberOfFeatFiles(self):
+        return len([f for f in os.listdir(self.featuresBasePath + "/" + self.labelsFolderName) if
+                    f.endswith('.csv') and os.path.isfile(os.path.join(self.featuresBasePath + "/" + self.labelsFolderName, f))])
+    def generate(self):
+        featureFolders = self.featureFoldersList
+        if not self.featureFoldersList:
+            featureFolders = [x[0] for x in os.walk(self.featuresBasePath)]
+        if self.coalesceInput:
+            while True:
+                for filename in os.listdir(self.featuresBasePath + "/" + self.labelsFolderName):
+                    if filename.endswith(".csv"):
+                        name = (os.path.splitext(filename)[0]).split("-" + self.labelsFolderName)[0]
+                        labelFilepath = self.featuresBasePath + "/" + self.labelsFolderName + "/" + name + "-" + self.labelsFolderName + ".csv"
+                        labs = genfromtxt(labelFilepath, delimiter=',')
+                        featuresList = []
+                        for folderName in featureFolders:
+                            featureFilepath = self.featuresBasePath + "/" + folderName + "/" + name + "-" + folderName + ".csv"
+                            feats = genfromtxt(featureFilepath, delimiter=',')
+                            featuresList.append(feats)
+                        labels = to_categorical(labs)[None, :, :]
+                        yield (np.hstack(featuresList)[None, :, :], labels)
+        else:
+            while True:
+                for filename in os.listdir(self.featuresBasePath + "/" + self.labelsFolderName):
+                    if filename.endswith(".csv"):
+                        name = (os.path.splitext(filename)[0]).split("-" + self.labelsFolderName)[0]
+                        labelFilepath = self.featuresBasePath + "/" + self.labelsFolderName + "/" + name + "-" + self.labelsFolderName + ".csv"
+                        labs = genfromtxt(labelFilepath, delimiter=',')
+                        featuresList = []
+                        for folderName in featureFolders:
+                            featureFilepath = self.featuresBasePath + "/" + folderName + "/" + name + "-" + folderName + ".csv"
+                            feats = genfromtxt(featureFilepath, delimiter=',')
+                            features = feats[None, :, :]
+                            featuresList.append(features)
+                        labels = to_categorical(labs)[None, :, :]
+                        yield (featuresList, labels)
 
-def getFeatsAndClassificationsFromFile(filepath):
-    feats = genfromtxt(filepath, delimiter=',')
-    features = feats[:,0:feats.shape[1]-1]
-    classifications = feats[:,feats.shape[1]-1:feats.shape[1]]
-    #np.savetxt(filepath + "-class.csv", to_categorical(classifications), delimiter=",")
-    return (features[newaxis, :, :], to_categorical(classifications)[newaxis, :, :])
-
-def trainingGeneratorFromFolder(folderpath):
-    # stackedFeatures = np.stack((getFeatsAndClassificationsFromFile(folderpath + "/" + filename)[0] if filename.endswith("-feats.csv") else None for filename in os.listdir(folderpath)),axis=0)
-    # print(stackedFeatures.shape)
-    while True:
-        for filename in os.listdir(folderpath):
-            if filename.endswith("-feats.csv"):
-                yield getFeatsAndClassificationsFromFile(folderpath + "/" + filename)
-
-def getNumberOfFeatFiles(folderpath):
-    # https://stackoverflow.com/questions/1320731/count-number-of-files-with-certain-extension-in-python
-    return len([f for f in os.listdir(folderpath) if f.endswith('-feats.csv') and os.path.isfile(os.path.join(folderpath, f))])

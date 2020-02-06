@@ -1,9 +1,11 @@
 import numpy as np
 from keras.models import load_model
 from feat_extract import getFeatsAndClassificationsFromFile
-model = load_model('pooled_model_v1')
+model = load_model('pooled_model_v3')
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-feats, classifications = getFeatsAndClassificationsFromFile("features/Grateful_1-18-2020-feats.csv")
+feats, classifications = getFeatsAndClassificationsFromFile("hold_out/Hallelujah_For_the_Cross_01-25-2020-feats.csv")
+print(model.metrics_names)
+print(model.evaluate(feats, classifications))
 predictionss = model.predict(feats)
 for predictions in predictionss:
     print(predictions.shape)
@@ -15,4 +17,4 @@ for predictions in predictionss:
     print(classificationsIntegers.shape)
     output = np.append(output, classificationsIntegers, axis=1)
 
-    np.savetxt("Grateful_1-18-2020-predicted.csv", output, delimiter=",")
+    np.savetxt("Hallelujah_For_the_Cross_01-25-2020-classifications.csv", output, delimiter=",")
