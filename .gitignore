@@ -7,3 +7,4 @@ features/
 .idea/
 .DS_Store
 pooled_model_v1
+pooledConvModel.h5

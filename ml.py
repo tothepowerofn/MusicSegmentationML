@@ -4,6 +4,7 @@ from keras.models import Model
 from keras.layers import (BatchNormalization, Conv1D, Dense, Input,
     TimeDistributed, Activation, Bidirectional, SimpleRNN, GRU, LSTM)
 from keras.utils import to_categorical
+from keras.layers import Concatenate
 from numpy import zeros, newaxis
 from keras.layers import Lambda
 from keras.backend import slice
@@ -104,14 +105,34 @@ def modelV4(inputDimension, numPerRecurrentLayer, numRecurrentLayers, outputDime
     model = Model(inputs=inputLayer, outputs=outputLayer)
     return model
 
-def adjustedConvModel(inputDimension, numPerRecurrentLayer, convWindowSize, numRecurrentLayers, outputDimension, numConvFilters=250, perkernelSize=11, stride=1):
-    # Input Layer
-    inputLayer = Input(shape=(None, inputDimension))
-    convSlices = []
-    convSliceInput = inputLayer
-    for i in range(0, inputDimension/convWindowSize):
-        slicedInput = Lambda(lambda x: x[:,:,0:i*convWindowSize], output_shape=(None,None,convWindowSize))(convSliceInput)
-    #Convolutional Slices
+def poolingConvModel(numInputs, perInputDimension, numPerRecurrentLayer, numRecurrentLayers, numDenseLayerUnits, outputDimension, numConvFiltersPerConv=250, kernelSizePerConv=11, stride=1):
+    #Input Layers
+    inputLayerList = []
+    for i in range(0, numInputs):
+        inputLayerList.append(Input(shape=(None, perInputDimension)))
+    #Convolutional Layers
+    convLayerList = []
+    for inputLayer in inputLayerList:
+        convLayer = Conv1D(filters=numConvFiltersPerConv, kernel_size=kernelSizePerConv,
+                           strides=stride,
+                           padding='same',
+                           # I think that 'same' is important to detecting "Intro" cues. See how Keras defines 'same'.
+                           activation='elu')(inputLayer)
+        convLayerList.append(convLayer)
+    #Concat Layer
+    merged = Concatenate()(convLayerList)
+    #Dense Layer
+    denseLayer = Dense(numDenseLayerUnits, activation='relu')(merged)
+    currentRecurrentLayerInput = denseLayer
+    for i in range(0, numRecurrentLayers):
+        rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+            currentRecurrentLayerInput)
+        currentRecurrentLayerInput = rnnLayer
+    outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(currentRecurrentLayerInput)
+
+    # Defining the actual model
+    model = Model(inputs=inputLayerList, outputs=outputLayer)
+    return model
 
 def trainWithModelSingleSong(model, features, classifications, epochs):
     x_train = features[newaxis,:,:]

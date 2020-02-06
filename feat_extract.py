@@ -194,7 +194,6 @@ class DelayFeature:
         for name, features in self.extractedFeatures.items():
             np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
 
-
 class AnnotatedSongLabeler:
     def __init__(self, dataPath, sample_rate, hop_length):
         self.sampleRate = sample_rate
@@ -225,6 +224,7 @@ class AnnotatedSongLabeler:
         for name in self.getClassifiableDataNames():
             labels = self.labelByName(name, featuresDictList[0][1][name])
             np.savetxt(labelPath + "/" + name + "-labels.csv", labels, delimiter=",")
+
 
 
 def generateLabeledFeatures(labeler, featureList):
