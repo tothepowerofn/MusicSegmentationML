@@ -10,7 +10,7 @@ if extract:
     delayFeature = DelayFeature("delay_input_1", mfccFeature, 1)
     delayFeatureStringList = []
     delayFeatureList = []
-    for i in range(1,11):
+    for i in range(1,101):
         delayFeature = DelayFeature("delay_input_" + str(i), mfccFeature, i)
         delayFeatureStringList.append("delay_input_" + str(i))
         delayFeatureList.append(delayFeature)
@@ -30,11 +30,11 @@ modelname = "pooledConvModel.h5"
 if load:
     model = load_model(modelname)
 else:
-    model = poolingConvModel(numInputs=10, perInputDimension=20, numPerRecurrentLayer=75, numRecurrentLayers=2, numDenseLayerUnits=50, outputDimension=numSegmentTypes, numConvFiltersPerConv=250, kernelSizePerConv=10, stride=1)
+    model = poolingConvModel(numInputs=100, perInputDimension=20, numPerRecurrentLayer=75, numRecurrentLayers=2, numDenseLayerUnits=50, outputDimension=numSegmentTypes, numConvFiltersPerConv=250, kernelSizePerConv=10, stride=1)
     model.summary()
 
 delayFeatureStringList = []
-for i in range(1,11):
+for i in range(1,101):
     delayFeatureStringList.append("delay_input_" + str(i))
 
 trainingGenerator = TrainingGenerator("features", "labels", delayFeatureStringList, coalesceInput=False)
