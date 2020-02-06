@@ -115,6 +115,7 @@ class Pooling1DFeature: #this is NOT relate to max-pooling.
         newInstance = Pooling1DFeature(newName, self.featureToPool, self.numSamples)
         newInstance.extractedFeatures = self.extractedFeatures
         return newInstance
+
     def getName(self):
         return self.featureName
 
@@ -154,6 +155,45 @@ class Pooling1DFeature: #this is NOT relate to max-pooling.
             self.extract()
         for name, features in self.extractedFeatures.items():
             np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
+
+class DelayFeature:
+    def __init__(self, featureName, featureToDelay, numSamplesDelay):
+        self.featureName = featureName
+        self.featureToDelay = featureToDelay
+        self.numSamplesDelay = numSamplesDelay
+        if numSamplesDelay < 1:
+            raise Exception(
+                "You need to delay for more than 1 sample! It makes no sense to delay by 0 samples, just use the feature itself in that case!")
+        self.extractedFeatures = {}
+    def copy(self, newName):
+        newInstance = DelayFeature(self.featureName, self.featureToDelay, self.numSamplesDelay)
+        newInstance.extractedFeatures = self.extractedFeatures
+
+    def getName(self):
+        return self.featureName
+
+    def extractSingle(self, name):
+        featureDict = self.featureToDelay.extract()
+        features = featureDict[name]
+        base = np.zeros((self.numSamplesDelay, features.shape[1]))
+        return np.vstack([base, features[0:features.shape[0]-self.numSamplesDelay,:]])
+    def extract(self):
+        if self.extractedFeatures:
+            return self.extractedFeatures
+        else:
+            for name in self.featureToDelay.extract().keys():
+                self.extractedFeatures[name] = self.extractSingle(name)
+            return self.extractedFeatures
+    def save(self, featureBasePath):
+        if not os.path.exists(featureBasePath):
+            os.makedirs(featureBasePath)
+        if not os.path.exists(featureBasePath + "/" + self.featureName):
+            os.makedirs(featureBasePath + "/" + self.featureName)
+        if not self.extractedFeatures:
+            self.extract()
+        for name, features in self.extractedFeatures.items():
+            np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
+
 
 class AnnotatedSongLabeler:
     def __init__(self, dataPath, sample_rate, hop_length):
