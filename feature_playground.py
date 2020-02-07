@@ -1,8 +1,8 @@
 from keras.engine.saving import load_model
 
-from feat_extract import saveTrainingData, MFCCFeature, Pooling1DFeature, AnnotatedSongLabeler, TrainingGenerator, \
+from feat_extract import saveTrainingData, MFCCFeature, Pooling1DFeature, AnnotatedSongLabeler, DataGenerator, \
     DelayFeature
-from ml import modelV4, trainModelWithGenerator, poolingConvModel
+from ml import modelV4, trainModelWithGenerator, poolingConvModel, ModelEvaluator
 
 extract = False
 if extract:
@@ -10,7 +10,7 @@ if extract:
     delayFeature = DelayFeature("delay_input_1", mfccFeature, 1)
     delayFeatureStringList = []
     delayFeatureList = []
-    for i in range(1,101):
+    for i in range(1,51):
         delayFeature = DelayFeature("delay_input_" + str(i), mfccFeature, i)
         delayFeatureStringList.append("delay_input_" + str(i))
         delayFeatureList.append(delayFeature)
@@ -25,17 +25,21 @@ if extract:
 
 numSegmentTypes = 6
 load = False
-modelname = "pooledConvModel.h5"
+modelname = "pooledConvModel"
 
 if load:
     model = load_model(modelname)
 else:
-    model = poolingConvModel(numInputs=100, perInputDimension=20, numPerRecurrentLayer=75, numRecurrentLayers=2, numDenseLayerUnits=50, outputDimension=numSegmentTypes, numConvFiltersPerConv=250, kernelSizePerConv=10, stride=1)
+    model = poolingConvModel(numInputs=50, perInputDimension=20, numPerRecurrentLayer=75, numRecurrentLayers=2, numDenseLayerUnits=50, outputDimension=numSegmentTypes, numConvFiltersPerConv=250, kernelSizePerConv=10, stride=1)
     model.summary()
 
 delayFeatureStringList = []
-for i in range(1,101):
+for i in range(1,51):
     delayFeatureStringList.append("delay_input_" + str(i))
 
-trainingGenerator = TrainingGenerator("features", "labels", delayFeatureStringList, coalesceInput=False)
-trainModelWithGenerator(model, trainingGenerator, modelname, 30)
+#trainingGenerator = DataGenerator("features", "labels", delayFeatureStringList, coalesceInput=False)
+#trainModelWithGenerator(model, trainingGenerator, modelname, 30)
+
+evaluator = ModelEvaluator("features", "labels", delayFeatureStringList, coalesceInput=False)
+evaluator.trainWithKFoldEval(model=model, k=3, modelName=modelname, epochs=2, saveBestOnly=True)
+#evaluator.trainWithSavedKFoldEval(modelname, 2, saveBestOnly=True)

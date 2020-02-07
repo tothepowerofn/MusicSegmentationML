@@ -251,7 +251,7 @@ def saveFeatures(generatedFeaturesDict, featureOutputFolderPath):
         np.savetxt(featureOutputFolderPath + "/" + name + "-feats.csv", features, delimiter=",")
 
 
-class TrainingGenerator:
+class DataGenerator:
     def __init__(self, featuresBasePath, labelsFolderName, featureFoldersList=None, coalesceInput=False):
         self.featuresBasePath = featuresBasePath
         self.labelsFolderName = labelsFolderName
@@ -293,4 +293,56 @@ class TrainingGenerator:
                             featuresList.append(features)
                         labels = to_categorical(labs)[None, :, :]
                         yield (featuresList, labels)
+
+    def chunkIt(self, seq, num): #https://stackoverflow.com/questions/2130016/splitting-a-list-into-n-parts-of-approximately-equal-length
+        avg = len(seq) / float(num)
+        out = []
+        last = 0.0
+
+        while last < len(seq):
+            out.append(seq[int(last):int(last + avg)])
+            last += avg
+
+        return out
+    def generateKFoldLists(self, k):
+        filenames = os.listdir(self.featuresBasePath + "/" + self.labelsFolderName)
+        csvFilenames = []
+        for filename in filenames:
+            if filename.endswith(".csv"):
+                csvFilenames.append(filename)
+        return self.chunkIt(csvFilenames, k)
+    def generateFromList(self, filenameList):
+        featureFolders = self.featureFoldersList
+        if not self.featureFoldersList:
+            featureFolders = [x[0] for x in os.walk(self.featuresBasePath)]
+        if self.coalesceInput:
+            while True:
+                for filename in filenameList:
+                    if filename.endswith(".csv"):
+                        name = (os.path.splitext(filename)[0]).split("-" + self.labelsFolderName)[0]
+                        labelFilepath = self.featuresBasePath + "/" + self.labelsFolderName + "/" + name + "-" + self.labelsFolderName + ".csv"
+                        labs = genfromtxt(labelFilepath, delimiter=',')
+                        featuresList = []
+                        for folderName in featureFolders:
+                            featureFilepath = self.featuresBasePath + "/" + folderName + "/" + name + "-" + folderName + ".csv"
+                            feats = genfromtxt(featureFilepath, delimiter=',')
+                            featuresList.append(feats)
+                        labels = to_categorical(labs)[None, :, :]
+                        yield (np.hstack(featuresList)[None, :, :], labels)
+        else:
+            while True:
+                for filename in filenameList:
+                    if filename.endswith(".csv"):
+                        name = (os.path.splitext(filename)[0]).split("-" + self.labelsFolderName)[0]
+                        labelFilepath = self.featuresBasePath + "/" + self.labelsFolderName + "/" + name + "-" + self.labelsFolderName + ".csv"
+                        labs = genfromtxt(labelFilepath, delimiter=',')
+                        featuresList = []
+                        for folderName in featureFolders:
+                            featureFilepath = self.featuresBasePath + "/" + folderName + "/" + name + "-" + folderName + ".csv"
+                            feats = genfromtxt(featureFilepath, delimiter=',')
+                            features = feats[None, :, :]
+                            featuresList.append(features)
+                        labels = to_categorical(labs)[None, :, :]
+                        yield (featuresList, labels)
+
 

@@ -1,8 +1,9 @@
+import numpy as np
 from feat_extract import TrainingGenerator
 from keras.models import load_model
 
 delayFeatureStringList = []
-for i in range(1,101):
+for i in range(1,51):
     delayFeatureStringList.append("delay_input_" + str(i))
 
 model = load_model('pooledConvModel.h5')
