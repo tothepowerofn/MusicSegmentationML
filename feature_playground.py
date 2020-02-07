@@ -41,5 +41,5 @@ for i in range(1,51):
 #trainModelWithGenerator(model, trainingGenerator, modelname, 30)
 
 evaluator = ModelEvaluator("features", "labels", delayFeatureStringList, coalesceInput=False)
-evaluator.trainWithKFoldEval(model=model, k=3, modelName=modelname, epochs=2, saveBestOnly=True)
+evaluator.trainWithKFoldEval(model=model, k=4, modelName=modelname, epochs=20, saveBestOnly=False)
 #evaluator.trainWithSavedKFoldEval(modelname, 2, saveBestOnly=True)

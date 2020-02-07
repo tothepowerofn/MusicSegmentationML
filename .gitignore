@@ -9,3 +9,5 @@ features/
 pooled_model_v1
 pooledConvModel.h5
 /features_holdout
+/*.h5
+/*.p

@@ -189,6 +189,7 @@ class ModelEvaluator:
         for j in range(0, k):
             clonedModel = clone_model(self.model)
             clonedModel.set_weights(self.model.get_weights())
+            clonedModel.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
             modelList.append(clonedModel)
         print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
         for i in range(1,epochs+1):
@@ -204,7 +205,7 @@ class ModelEvaluator:
                             currentTrainingList.append(filename)
                 currentModel = modelList[j]
                 numberOfFeatFiles = len(currentTrainingList)
-                currentModel.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
+                #currentModel.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
                 checkpoint = ModelCheckpoint(modelName + "-fold-" + str(j) + ".h5", monitor='categorical_accuracy', verbose=1,
                                              save_best_only=saveBestOnly, mode=saveMode)
                 callbacks_list = [checkpoint]
@@ -234,6 +235,7 @@ class ModelEvaluator:
             currListNum += 1
         for j in range(0, len(filenameLists)):
             openedModel = load_model(modelName + "-fold-" + str(j) + ".h5")
+            openedModel.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
             modelList.append(openedModel)
         print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
         for i in range(1, epochs + 1):
@@ -249,8 +251,8 @@ class ModelEvaluator:
                             currentTrainingList.append(filename)
                 currentModel = modelList[j]
                 numberOfFeatFiles = len(currentTrainingList)
-                currentModel.compile(loss='categorical_crossentropy', optimizer='adam',
-                                     metrics=['categorical_accuracy'])
+                #currentModel.compile(loss='categorical_crossentropy', optimizer='adam',
+                #                     metrics=['categorical_accuracy'])
                 checkpoint = ModelCheckpoint(modelName + "-fold-" + str(j) + ".h5", monitor='categorical_accuracy',
                                              verbose=1,
                                              save_best_only=saveBestOnly, mode=saveMode)
