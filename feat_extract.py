@@ -6,6 +6,7 @@ from numpy import zeros, newaxis
 from keras.utils import to_categorical
 import os
 import math
+import random
 
 
 #Extracts MFCC features into a numpy array according to the parameters given.
@@ -41,7 +42,20 @@ def timestampToSampleNumber(time, sampleRate):
 def timestampToHop(time, sampleRate, hopLength):
     return int(math.ceil(timestampToSampleNumber(time, sampleRate)/hopLength))
 
-class MFCCFeature:
+
+class Feature:
+    def extract(self):
+        pass
+    def copy(self, newName):
+        pass
+    def getName(self):
+        pass
+    def extract(self):
+        pass
+    def save(self, featureBasePath):
+        pass
+
+class MFCCFeature(Feature):
     def __init__(self, featureName, dataPath, S=None, n_mfcc=20, dct_type=2, norm='ortho', lifter=0, normalize = True, **kwargs):
         self.S = S
         self.n_mfcc = n_mfcc
@@ -103,7 +117,7 @@ class MFCCFeature:
             np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
 
 
-class Pooling1DFeature: #this is NOT relate to max-pooling.
+class Pooling1DFeature(Feature): #this is NOT relate to max-pooling.
     def __init__(self, featureName, featureToPool, numSamples):
         self.featureToPool = featureToPool
         self.numSamples = numSamples
@@ -156,7 +170,7 @@ class Pooling1DFeature: #this is NOT relate to max-pooling.
         for name, features in self.extractedFeatures.items():
             np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
 
-class DelayFeature:
+class DelayFeature(Feature):
     def __init__(self, featureName, featureToDelay, numSamplesDelay):
         self.featureName = featureName
         self.featureToDelay = featureToDelay
@@ -310,6 +324,7 @@ class DataGenerator:
         for filename in filenames:
             if filename.endswith(".csv"):
                 csvFilenames.append(filename)
+        random.shuffle(csvFilenames)
         return self.chunkIt(csvFilenames, k)
     def generateFromList(self, filenameList):
         featureFolders = self.featureFoldersList

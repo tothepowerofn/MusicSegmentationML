@@ -9,8 +9,9 @@ from numpy import zeros, newaxis
 from keras.models import clone_model
 import pickle
 from keras.layers import Lambda
+from keras.layers import Dropout, Conv2D, Flatten
 from keras.models import load_model
-from keras.backend import slice
+from keras.backend import slice, stack
 
 #https://github.com/JackBurdick/ASR_DL/blob/master/sample_models.py roughly used as a starting point
 from feat_extract import DataGenerator
@@ -140,6 +141,69 @@ def poolingConvModel(numInputs, perInputDimension, numPerRecurrentLayer, numRecu
     model = Model(inputs=inputLayerList, outputs=outputLayer)
     return model
 
+def poolingRecConvModel(numInputs, perInputDimension, numPerConvRecurrentLayer, numPerRecurrentLayer, numRecurrentLayers, numDenseLayerUnits, outputDimension, numConvFiltersPerConv=250, kernelSizePerConv=11, stride=1):
+    #Input Layers
+    inputLayerList = []
+    for i in range(0, numInputs):
+        inputLayerList.append(Input(shape=(None, perInputDimension)))
+    #Convolutional Layers
+    convRecLayerList = []
+    for inputLayer in inputLayerList:
+        convLayer = Conv1D(filters=numConvFiltersPerConv, kernel_size=kernelSizePerConv,
+                           strides=stride,
+                           padding='same',
+                           # I think that 'same' is important to detecting "Intro" cues. See how Keras defines 'same'.
+                           activation='elu')(inputLayer)
+        convRecLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(convLayer)
+        convRecLayerList.append(convRecLayer)
+    #Concat Layer
+    merged = Concatenate()(convRecLayerList)
+    #Dense Layer
+    denseLayer = Dense(numDenseLayerUnits, activation='relu')(merged)
+    currentRecurrentLayerInput = denseLayer
+    for i in range(0, numRecurrentLayers):
+        rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+            currentRecurrentLayerInput)
+        currentRecurrentLayerInput = rnnLayer
+    outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(currentRecurrentLayerInput)
+
+    # Defining the actual model
+    model = Model(inputs=inputLayerList, outputs=outputLayer)
+    return model
+
+def poolingConvModelWithDropout(numInputs, perInputDimension, numPerRecurrentLayer, numRecurrentLayers, numDenseLayerUnits, outputDimension, dropoutRate=0.2, numConvFiltersPerConv=250, kernelSizePerConv=11, stride=1):
+    #Input Layers
+    inputLayerList = []
+    for i in range(0, numInputs):
+        inputLayerList.append(Input(shape=(None, perInputDimension)))
+    #Convolutional Layers
+    convLayerList = []
+    for inputLayer in inputLayerList:
+        convLayer = Conv1D(filters=numConvFiltersPerConv, kernel_size=kernelSizePerConv,
+                           strides=stride,
+                           padding='same',
+                           # I think that 'same' is important to detecting "Intro" cues. See how Keras defines 'same'.
+                           activation='elu')(inputLayer)
+        convLayerList.append(convLayer)
+    #Concat Layer
+    merged = Concatenate()(convLayerList)
+    dropoutLayerConv = Dropout(dropoutRate)(merged)
+    #Dense Layer
+    denseLayer = Dense(numDenseLayerUnits, activation='relu')(dropoutLayerConv)
+    dropoutLayer1 = Dropout(dropoutRate)(denseLayer)
+    currentRecurrentLayerInput = dropoutLayer1
+    for i in range(0, numRecurrentLayers):
+        rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+            currentRecurrentLayerInput)
+
+        currentRecurrentLayerInput = rnnLayer
+    dropoutLayer2 = Dropout(dropoutRate)(currentRecurrentLayerInput)
+    outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(dropoutLayer2)
+
+    # Defining the actual model
+    model = Model(inputs=inputLayerList, outputs=outputLayer)
+    return model
+
 def trainWithModelSingleSong(model, features, classifications, epochs):
     x_train = features[newaxis,:,:]
     y_train = to_categorical(classifications)[newaxis, :,:,]
@@ -166,13 +230,105 @@ def trainModelWithGenerator(model, generator, modelName, epochs):
     history = model.fit(generator.generate(), epochs=epochs, steps_per_epoch = numberOfFeatFiles, callbacks=callbacks_list)
     #model.save(modelSaveName)
 
+
+class Model:
+    def __init__(self, modelName, savedModelPath=None):
+        self.modelName = modelName
+        self.model = None
+        self.savedModelPath = savedModelPath
+        if(savedModelPath):
+            self.model = load_model(savedModelPath)
+        else:
+            pass #in subclasses, build the model here
+    def clone(self):
+        clonedKModel = clone_model(self.model)
+        clonedKModel.set_weights(self.model.get_weights())
+        newModel = Model(self.modelName, savedModelPath=self.savedModelPath)
+        newModel.model = clonedKModel
+        return newModel
+    def compile(self, **kwargs):
+        self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
+    def fitWithGenerator(self, generator, generatorList, epochs, steps_per_epoch, saveBestOnly=False, **kwargs):
+        checkpoint = ModelCheckpoint(self.modelName, monitor='categorical_accuracy', verbose=1,
+                                     save_best_only=saveBestOnly, mode="max")
+        callbacks_list = [checkpoint]
+        history = self.model.fit(generator.generateFromList(generatorList), epochs=epochs,
+                                   steps_per_epoch=steps_per_epoch,
+                                   callbacks=callbacks_list)
+        return history
+
+    def evaluateWithGenerator(self, generator, generatorList, steps):
+        results = self.model.evaluate(generator.generateFromList(generatorList),
+                              steps=steps)
+        return results
+
 class ModelEvaluator:
     def __init__(self, featureFolderPath, labelFolderPath, featureList, coalesceInput=False):
         self.featureFolderPath = featureFolderPath
         self.labelFolderPath = labelFolderPath
         self.featureList = featureList
         self.coalesceInput = coalesceInput
+
+    def trainKFolds(self, modelName, modelList, filenameLists, generator, epochs, saveBestOnly=False):
+        currListNum = 0
+        k = len(modelList)
+        for filenameList in filenameLists:
+            print(">> List " + str(currListNum))
+            for filename in filenameList:
+                print(filename)
+            currListNum += 1
+        for model in modelList:
+            model.compile()
+        print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        for i in range(1, epochs + 1):
+            accuracies = []
+            for j in range(0, k):
+                print("----------------------------------------------------------------------------")
+                print(">> Currently on epoch " + str(i) + " of " + str(epochs) + " with fold " + str(j))
+                print(">> Now training folds that are not " + str(j))
+                currentTrainingList = []
+                for l in range(0, len(filenameLists)):
+                    if l is not j:
+                        for filename in filenameLists[l]:
+                            currentTrainingList.append(filename)
+                currentModel = modelList[j]
+                numberOfFeatFiles = len(currentTrainingList)
+                history = currentModel.fitWithGenerator(generator=generator, generatorList=currentTrainingList,epochs=1,
+                                                        steps_per_epoch=numberOfFeatFiles, saveBestOnly=saveBestOnly)
+                print(">> Now testing model on fold " + str(j))
+                results = currentModel.evaluate(generator, filenameLists[j], len(filenameLists[j]))
+                print("Model had validation accuracy " + str(results[1]) + " and loss " + str(
+                    results[0]) + " on fold " + str(j))
+                accuracies.append(results[1])
+                print("----------------------------------------------------------------------------")
+                print(" ")
+            print(
+                "This epoch (" + str(i) + ") had average validation accuracy " + str(sum(accuracies) / len(accuracies)))
+            print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+
     def trainWithKFoldEval(self, model, k, modelName, epochs, saveBestOnly=True):
+        generator = DataGenerator(self.featureFolderPath, self.labelFolderPath, self.featureList,
+                                  coalesceInput=self.coalesceInput)
+        filenameLists = generator.generateKFoldLists(k)
+        savedListsFile = open(modelName + "-folds.p", 'wb')
+        pickle.dump(filenameLists, savedListsFile)
+        modelList = []
+        for j in range(0, k):
+            clonedModel = model.clone()
+            clonedModel.compile()
+            modelList.append(clonedModel)
+        self.trainKFolds(modelName, filenameLists, generator, epochs, saveBestOnly)
+    def trainWithSavedKFoldEval(self, modelName, epochs, saveBestOnly):
+        generator = DataGenerator(self.featureFolderPath, self.labelFolderPath, self.featureList,
+                                  coalesceInput=self.coalesceInput)
+        filenameLists = pickle.load(open(modelName + "-folds.p", "rb"))
+        modelList = []
+        for j in range(0, len(filenameLists)):
+            openedModel = Model(modelName, savedModelPath=modelName + "-fold-" + str(j) + ".h5")
+            openedModel.compile()
+            modelList.append(openedModel)
+
+    def trainWithKFoldEvalOld(self, model, k, modelName, epochs, saveBestOnly=True):
         self.model = model
         saveMode = "max"
         generator = DataGenerator(self.featureFolderPath, self.labelFolderPath, self.featureList, coalesceInput=self.coalesceInput)
@@ -221,7 +377,7 @@ class ModelEvaluator:
                 print(" ")
             print("This epoch (" + str(i) + ") had average validation accuracy " + str(sum(accuracies)/len(accuracies)))
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    def trainWithSavedKFoldEval(self, modelName, epochs, saveBestOnly):
+    def trainWithSavedKFoldEvalOld(self, modelName, epochs, saveBestOnly):
         saveMode = "max"
         generator = DataGenerator(self.featureFolderPath, self.labelFolderPath, self.featureList,
                                   coalesceInput=self.coalesceInput)
