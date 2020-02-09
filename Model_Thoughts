@@ -28,3 +28,8 @@
     Trainable params: 666,456
     Non-trainable params: 0
     _________________________________________________________________
+
+2/8/2020 @7:58pm ET:
+    model.build(dropoutRate=0.5, numInputs=poolSize, perInputDimension=10, numPerRecurrentLayer=60, numRecurrentLayers=2,
+                numDenseLayerUnits=40, outputDimension=numSegmentTypes, numConvFiltersPerConv=250, kernelSizePerConv=5, stride=1)
+    Seems to work with low 50% validation accuracy

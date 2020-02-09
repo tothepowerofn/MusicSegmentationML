@@ -11,3 +11,4 @@ pooledConvModel.h5
 /features_holdout
 /*.h5
 /*.p
+hold_off/
