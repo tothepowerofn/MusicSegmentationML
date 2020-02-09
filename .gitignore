@@ -12,3 +12,4 @@ pooledConvModel.h5
 /*.h5
 /*.p
 hold_off/
+to_process/

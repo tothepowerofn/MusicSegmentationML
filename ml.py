@@ -2,7 +2,7 @@ import keras as k
 from keras.callbacks import ModelCheckpoint
 from keras.models import Model
 from keras.layers import (BatchNormalization, Conv1D, Dense, Input,
-    TimeDistributed, Activation, Bidirectional, SimpleRNN, GRU, LSTM)
+                          TimeDistributed, Activation, Bidirectional, SimpleRNN, GRU, LSTM, MaxPooling1D)
 from keras.utils import to_categorical
 from keras.layers import Concatenate
 from numpy import zeros, newaxis
@@ -303,6 +303,34 @@ class PoolingConvModelWithDropout(MModel):
         # Defining the actual model
         model = Model(inputs=inputLayerList, outputs=outputLayer)
         self.model = model
+
+class PoolingModelWithDropout(MModel):
+    def build(self, dropoutRate=0.5, numInputs=400, perInputDimension=10, numPerRecurrentLayer=60, numRecurrentLayers=2,
+              numDenseLayerUnits=40, outputDimension=6):
+        # Input Layers
+        inputLayerList = []
+        for i in range(0, numInputs):
+            inputLayerList.append(Input(shape=(None, perInputDimension)))
+        # Concat Layer
+        merged = Concatenate()(inputLayerList)
+        dropoutLayerConv = Dropout(dropoutRate)(merged)
+        # Dense Layer
+        denseLayer = Dense(numDenseLayerUnits, activation='relu')(dropoutLayerConv)
+        dropoutLayer1 = Dropout(dropoutRate)(denseLayer)
+        currentRecurrentLayerInput = dropoutLayer1
+        for i in range(0, numRecurrentLayers):
+            rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+                currentRecurrentLayerInput)
+
+            currentRecurrentLayerInput = rnnLayer
+        dropoutLayer2 = Dropout(dropoutRate)(currentRecurrentLayerInput)
+        outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(dropoutLayer2)
+
+        # Defining the actual model
+        model = Model(inputs=inputLayerList, outputs=outputLayer)
+        self.model = model
+
+
 
 
 class ModelEvaluator:
