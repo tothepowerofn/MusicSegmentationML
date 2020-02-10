@@ -12,6 +12,7 @@ from keras.layers import Lambda
 from keras.layers import Dropout, Conv2D, Flatten
 from keras.models import load_model
 from keras.backend import slice, stack
+import math
 
 #https://github.com/JackBurdick/ASR_DL/blob/master/sample_models.py roughly used as a starting point
 from feat_extract import DataGenerator
@@ -287,9 +288,9 @@ class PoolingConvModelWithDropout(MModel):
             convLayerList.append(convLayer)
         # Concat Layer
         merged = Concatenate()(convLayerList)
-        dropoutLayerConv = Dropout(dropoutRate)(merged)
+        dropoutLayerMerged = Dropout(dropoutRate)(merged)
         # Dense Layer
-        denseLayer = Dense(numDenseLayerUnits, activation='relu')(dropoutLayerConv)
+        denseLayer = Dense(numDenseLayerUnits, activation='relu')(dropoutLayerMerged)
         dropoutLayer1 = Dropout(dropoutRate)(denseLayer)
         currentRecurrentLayerInput = dropoutLayer1
         for i in range(0, numRecurrentLayers):
@@ -330,7 +331,48 @@ class PoolingModelWithDropout(MModel):
         model = Model(inputs=inputLayerList, outputs=outputLayer)
         self.model = model
 
+class FadingPoolingModelWithDropout(MModel):
+    def build(self, dropoutRate=0.5, numInputs=400, perInputDimension=10, fadingMaxUnits=None, perInputDenseUnitFadingList=None, numPerRecurrentLayer=60, numRecurrentLayers=2,
+              numDenseLayerUnits=40, outputDimension=6):
+        gradingList = perInputDenseUnitFadingList
+        if not gradingList:
+            gradingList = []
+            for i in range(numInputs,-1,-1):
+                it = i
+                if it is 0:
+                    it = 1
+                currentLog = math.log(it, numInputs)*fadingMaxUnits
+                numUnits = math.ceil(currentLog)
+                if numUnits is 0:
+                    numUnits = 1
+                gradingList.append(numUnits)
+        # Input Layers
+        inputLayerList = []
+        inputDenseList = []
+        for i in range(0, numInputs):
+            input = Input(shape=(None, perInputDimension))
+            inputLayerList.append(input)
+            denseInputLayer = Dense(gradingList[i], activation='relu')(input)
+            inputDenseList.append(denseInputLayer)
 
+        # Concat Layer
+        merged = Concatenate()(inputDenseList)
+        dropoutLayerConv = Dropout(dropoutRate)(merged)
+        # Dense Layer
+        denseLayer = Dense(numDenseLayerUnits, activation='relu')(dropoutLayerConv)
+        dropoutLayer1 = Dropout(dropoutRate)(denseLayer)
+        currentRecurrentLayerInput = dropoutLayer1
+        for i in range(0, numRecurrentLayers):
+            rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+                currentRecurrentLayerInput)
+
+            currentRecurrentLayerInput = rnnLayer
+        dropoutLayer2 = Dropout(dropoutRate)(currentRecurrentLayerInput)
+        outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(dropoutLayer2)
+
+        # Defining the actual model
+        model = Model(inputs=inputLayerList, outputs=outputLayer)
+        self.model = model
 
 
 class ModelEvaluator:

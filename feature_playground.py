@@ -2,11 +2,11 @@ from keras.engine.saving import load_model
 
 from feat_extract import saveTrainingData, MFCCFeature, AnnotatedSongLabeler, DelayFeature
 from ml import ModelEvaluator, poolingConvModelWithDropout, Model, PoolingConvModelWithDropout,\
-    PoolingModelWithDropout
+    PoolingModelWithDropout, FadingPoolingModelWithDropout
 
 extract = False
 load = False
-poolSize = 80
+poolSize = 1000
 numSegmentTypes = 6
 modelName = "PoolingModelWithDropout80"
 
@@ -31,10 +31,10 @@ if extract:
 
 
 
-model = PoolingModelWithDropout(modelName)
+model = FadingPoolingModelWithDropout(modelName)
 if not load:
-    model.build(dropoutRate=0.4, numInputs=poolSize, perInputDimension=10, numPerRecurrentLayer=100, numRecurrentLayers=2,
-                numDenseLayerUnits=75, outputDimension=numSegmentTypes)
+    model.build(dropoutRate=0.35, numInputs=poolSize, perInputDimension=10, numPerRecurrentLayer=100, numRecurrentLayers=2,
+                numDenseLayerUnits=100, outputDimension=numSegmentTypes, fadingMaxUnits=5)
     model.summary()
 
 featureStringList = []
