@@ -374,6 +374,54 @@ class FadingPoolingModelWithDropout(MModel):
         model = Model(inputs=inputLayerList, outputs=outputLayer)
         self.model = model
 
+class FadingPoolingModelWithDropoutAndSegOrder(MModel):
+    def build(self, dropoutRate=0.5, numInputs=400, perInputDimension=10, fadingMaxUnits=None, perInputDenseUnitFadingList=None, numPerRecurrentLayer=60, numRecurrentLayers=2,
+              numDenseLayerUnits=40, outputDimension=6, segOrderDimension=6*15):
+        gradingList = perInputDenseUnitFadingList
+        if not gradingList:
+            gradingList = []
+            for i in range(numInputs,-1,-1):
+                it = i
+                if it is 0:
+                    it = 1
+                currentLog = math.log(it, numInputs)*fadingMaxUnits
+                numUnits = math.ceil(currentLog)
+                if numUnits is 0:
+                    numUnits = 1
+                gradingList.append(numUnits)
+        # Input Layers
+        inputLayerList = []
+        inputDenseList = []
+        for i in range(0, numInputs):
+            input = Input(shape=(None, perInputDimension))
+            inputLayerList.append(input)
+            denseInputLayer = Dense(gradingList[i], activation='relu')(input)
+            inputDenseList.append(denseInputLayer)
+        segOrderLayer = Input(shape=(None, segOrderDimension))
+        inputLayerList.append(segOrderLayer)
+
+        # Concat Layer
+        merged = Concatenate()(inputDenseList)
+        dropoutLayerConv = Dropout(dropoutRate)(merged)
+        # Dense Layer
+        denseLayer = Dense(numDenseLayerUnits, activation='relu')(dropoutLayerConv)
+        dropoutLayer1 = Dropout(dropoutRate)(denseLayer)
+        currentRecurrentLayerInput = dropoutLayer1
+        for i in range(0, numRecurrentLayers-1):
+            rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+                currentRecurrentLayerInput)
+
+            currentRecurrentLayerInput = rnnLayer
+        finalRecurrentLayerConcat = Concatenate()([currentRecurrentLayerInput, segOrderLayer])
+        finalRecurrentLayer = rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+                finalRecurrentLayerConcat)
+        dropoutLayer2 = Dropout(dropoutRate)(finalRecurrentLayer)
+        outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(dropoutLayer2)
+
+        # Defining the actual model
+        model = Model(inputs=inputLayerList, outputs=outputLayer)
+        self.model = model
+
 
 class ModelEvaluator:
     def __init__(self, featureFolderPath, labelFolderPath):

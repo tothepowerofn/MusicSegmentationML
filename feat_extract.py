@@ -1,3 +1,5 @@
+import pickle
+
 import librosa
 import librosa.display
 import numpy as np
@@ -46,6 +48,8 @@ def timestampToHop(time, sampleRate, hopLength):
 class Feature:
     def extract(self):
         pass
+    def updateProperties(self, examplesProperties):
+        self.examplesProperties = examplesProperties
     def copy(self, newName):
         pass
     def getName(self):
@@ -118,7 +122,7 @@ class MFCCFeature(Feature):
 
 
 class Pooling1DFeature(Feature): #this is NOT relate to max-pooling.
-    def __init__(self, featureName, featureToPool, numSamples):
+    def __init__(self, featureName, featureToPool, numSamples, **kwargs):
         self.featureToPool = featureToPool
         self.numSamples = numSamples
         self.featureName = featureName
@@ -171,7 +175,7 @@ class Pooling1DFeature(Feature): #this is NOT relate to max-pooling.
             np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
 
 class DelayFeature(Feature):
-    def __init__(self, featureName, featureToDelay, numSamplesDelay):
+    def __init__(self, featureName, featureToDelay, numSamplesDelay, **kwargs):
         self.featureName = featureName
         self.featureToDelay = featureToDelay
         self.numSamplesDelay = numSamplesDelay
@@ -208,6 +212,46 @@ class DelayFeature(Feature):
         for name, features in self.extractedFeatures.items():
             np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
 
+class SegmentOrderFeature(Feature):
+    def __init__(self, featureName, dataPath, numClasses, maxLength, **kwargs):
+        self.extractedFeatures = None
+        self.featureName = featureName
+        self.dataPath = dataPath
+        self.numClasses = numClasses
+        self.extractedFeatures = {}
+        self.maxLength = maxLength
+    def copy(self, newName):
+        newInstance = SegmentOrderFeature(self.featureName)
+        newInstance.extractedFeatures = self.extractedFeatures
+    def getName(self):
+        return self.featureName
+    def extractSingle(self, filepath):
+        annotationData = genfromtxt(filepath, delimiter=',')
+        segmentList = annotationData[:, 1:2]
+        segmentList2D = to_categorical(segmentList, self.numClasses)
+        if segmentList2D.shape[0] < self.maxLength:
+            return np.vstack([segmentList2D, np.zeros((self.maxLength - segmentList2D.shape[0],self.numClasses))])
+        else:
+            return segmentList2D[0:self.maxLength, :]
+    def extract(self):
+        if self.extractedFeatures:
+            return self.extractedFeatures
+        else:
+            for filename in os.listdir(self.dataPath):
+                if filename.endswith("-annotation.csv"):
+                    self.extractedFeatures[filename.split("-annotation.csv")[0]] = self.extractSingle(self.dataPath + "/" + filename)
+            return self.extractedFeatures
+    def save(self, featureBasePath):
+        if not os.path.exists(featureBasePath):
+            os.makedirs(featureBasePath)
+        if not os.path.exists(featureBasePath + "/" + self.featureName):
+            os.makedirs(featureBasePath + "/" + self.featureName)
+        if not self.extractedFeatures:
+            self.extract()
+        for name, features in self.extractedFeatures.items():
+            np.savetxt(featureBasePath + "/" + self.featureName + "/" + name + "-" + self.featureName + ".csv", features, delimiter=",")
+
+
 class AnnotatedSongLabeler:
     def __init__(self, dataPath, sample_rate, hop_length):
         self.sampleRate = sample_rate
@@ -239,7 +283,53 @@ class AnnotatedSongLabeler:
             labels = self.labelByName(name, featuresDictList[0][1][name])
             np.savetxt(labelPath + "/" + name + "-labels.csv", labels, delimiter=",")
 
+class IndexerModule:
+    def getPropertyForExample(self, filepath):
+        pass
 
+class SongMetadataIndexerModule(IndexerModule):
+    def getPropertyForExample(self, filepath):
+        properties = {}
+        properties["wav_filepath"] = filepath
+        return properties
+
+class MFCCDimensionsIndexerModule(IndexerModule):
+    def __init__(self, hop_length, n_mfcc):
+        self.hop_length = hop_length
+        self.n_mfcc = n_mfcc
+    def getPropertyForExample(self, filepath):
+        properties = {}
+        sound, sampleRate = librosa.load(filepath)
+        properties["samples"] = sound.shape[0]
+        properties["mfcc_length"] = math.ceil(sound.shape[0]/self.hop_length)
+        properties["mfcc_width"] = self.n_mfcc
+        return properties
+
+class Indexer:
+    def __init__(self, dataPath, modulesList):
+        self.dataPath = dataPath
+        self.examplesPropertiesDict = {}
+        self.modulesList = modulesList
+    def getPropertiesForExample(self, filepath, modulesList):
+        propertiesDict = {}
+        for module in modulesList:
+            propertiesDict.update(module.getPropertyForExample(filepath))
+        return propertiesDict
+    def getPropertiesForExamples(self):
+        if self.examplesPropertiesDict:
+            return self.examplesPropertiesDict
+        for filename in os.listdir(self.dataPath):
+            if filename.endswith(".wav"):
+                currentExampleName = os.path.basename(filename).split(".wav")[0]
+                currentExampleFilepath = self.dataPath + "/" + filename
+                currentExampleProperties = self.getPropertiesForExample(currentExampleFilepath, self.modulesList)
+                self.examplesPropertiesDict[currentExampleName] = currentExampleProperties
+        return self.examplesPropertiesDict
+    def saveProperties(self, featureBasePath):
+        if not self.examplesPropertiesDict:
+            self.getPropertiesForExamples()
+        savedExamplePropertiesDictFile = open(featureBasePath + "/" + "properties.p", 'wb')
+        pickle.dump(self.examplesPropertiesDict, savedExamplePropertiesDictFile)
 
 def generateLabeledFeatures(labeler, featureList):
     dictList = []
@@ -252,10 +342,14 @@ def generateLabeledFeatures(labeler, featureList):
         generatedLabeledFeaturesDict[name] = combinedFeaturesAndClassifications
     return generatedLabeledFeaturesDict
 
-def saveTrainingData(featureBasePath, featureList, labeler):
+def saveTrainingData(featureBasePath, featureList, indexer, labeler):
     dictList = []
-    generatedLabeledFeaturesDict = {}
+    examplesProperties = indexer.getPropertiesForExamples()
+    for name, exampleProperties in examplesProperties.items():
+        print((name, exampleProperties))
+    indexer.saveProperties(featureBasePath)
     for feature in featureList:
+        feature.updateProperties(examplesProperties)
         dictList.append((feature.getName(), feature.extract()))
         feature.save(featureBasePath)
     labeler.saveLabels(featureBasePath + "/" + "labels", dictList)
@@ -272,6 +366,18 @@ class DataGeneratorModule():
         pass
     def load(self, name):
         pass
+
+class BasicDataGeneratorModule():
+    def __init__(self, featureFolderBasePath, featureFolderName):
+        self.featureFolderBasePath = featureFolderBasePath
+        super().__init__(featureFolderBasePath)
+        self.featureFolderName = featureFolderName
+    def loadForFile(self, filepath):
+        features = genfromtxt(filepath, delimiter=',')
+        return [features[None, :, :]]
+    def load(self, name):
+        featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
+        return self.loadForFile(featureFilePath)
 
 class PooledDataGeneratorModule(DataGeneratorModule):
     def __init__(self, stepsToPool, featureFolderBasePath, featureFolderName):
@@ -292,6 +398,21 @@ class PooledDataGeneratorModule(DataGeneratorModule):
         featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
         return self.loadForFile(featureFilePath)
 
+class SegmentOrderDataGeneratorModule(DataGeneratorModule):
+    def __init__(self, featureFolderBasePath, featureFolderName):
+        super().__init__(featureFolderBasePath)
+        self.featureFolderName = featureFolderName
+    def loadForFile(self, filePath, examplesProperties):
+        features = genfromtxt(filePath, delimiter=',')
+        name = os.path.basename(filePath).split("-" + self.featureFolderName + ".csv")[0]
+        numRows = examplesProperties[name]["mfcc_length"]
+        featuresRow = features.flatten()[None, :]
+        finalFeatures = np.repeat(featuresRow, numRows, axis=0)
+        return [finalFeatures[None, :, :]]
+    def load(self, name):
+        featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
+        examplesProperties = pickle.load(open(self.featureFolderBasePath + "/" + "properties.p", "rb"))
+        return self.loadForFile(featureFilePath, examplesProperties)
 
 class ModularDataGenerator():
     def __init__(self, featuresBasePath, labelsFolderName):
@@ -309,7 +430,6 @@ class ModularDataGenerator():
         while last < len(seq):
             out.append(seq[int(last):int(last + avg)])
             last += avg
-
         return out
     def generateKFoldLists(self, k):
         filenames = os.listdir(self.featuresBasePath + "/" + self.labelsFolderName)
