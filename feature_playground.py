@@ -25,13 +25,13 @@ if extract:
     featureList = []
     featureList.append(mfccFeature)
     featureList.append(segmentOrderFeature)
-    annot = AnnotatedSongLabeler("annotations", sample_rate=22050, hop_length=4096)
+    annot = AnnotatedSongLabeler("annotations", sample_rate=22050, hop_length=hop_length)
     saveTrainingData("features", featureList, indexer, annot)
 
 if train:
     model = FadingPoolingModelWithDropoutAndSegOrder(modelName)
     if not load:
-        model.build(dropoutRate=0.45, numInputs=poolSize, perInputDimension=10, numPerRecurrentLayer=100, numRecurrentLayers=2,
+        model.build(dropoutRate=0.45, numInputs=poolSize, perInputDimension=n_mfcc, numPerRecurrentLayer=100, numRecurrentLayers=2,
                     numDenseLayerUnits=100, outputDimension=numSegmentTypes, fadingMaxUnits=5, segOrderDimension=numSegmentTypes*maxSegmentListLength)
         model.summary()
 
