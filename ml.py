@@ -15,7 +15,7 @@ from keras.backend import slice, stack
 import math
 
 #https://github.com/JackBurdick/ASR_DL/blob/master/sample_models.py roughly used as a starting point
-from feat_extract import DataGenerator
+from feat_extract import ModularDataGenerator
 
 
 def stupidSimpleRNNModel(inputDimension, numPerRecurrentLayer, numRecurrentLayers, outputDimension, numConvFilters=250, kernelSize=11):
@@ -256,17 +256,17 @@ class MModel:
         self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     def summary(self):
         self.model.summary()
-    def fitWithGenerator(self, generator, generatorList, epochs, steps_per_epoch, saveBestOnly=False, **kwargs):
+    def fitWithGenerator(self, generator, generatorList, modulesList, epochs, steps_per_epoch, saveBestOnly=False, **kwargs):
         checkpoint = ModelCheckpoint(self.modelName + ".h5", monitor='categorical_accuracy', verbose=1,
                                      save_best_only=saveBestOnly, mode="max")
         callbacks_list = [checkpoint]
-        history = self.model.fit(generator.generateFromList(generatorList), epochs=epochs,
+        history = self.model.fit(generator.generateFromList(generatorList, modulesList), epochs=epochs,
                                    steps_per_epoch=steps_per_epoch,
                                    callbacks=callbacks_list)
         return history
 
-    def evaluateWithGenerator(self, generator, generatorList, steps):
-        results = self.model.evaluate(generator.generateFromList(generatorList),
+    def evaluateWithGenerator(self, generator, generatorList, modulesList, steps):
+        results = self.model.evaluate(generator.generateFromList(generatorList, modulesList),
                               steps=steps)
         return results
 
@@ -376,13 +376,11 @@ class FadingPoolingModelWithDropout(MModel):
 
 
 class ModelEvaluator:
-    def __init__(self, featureFolderPath, labelFolderPath, featureList, coalesceInput=False):
+    def __init__(self, featureFolderPath, labelFolderPath):
         self.featureFolderPath = featureFolderPath
         self.labelFolderPath = labelFolderPath
-        self.featureList = featureList
-        self.coalesceInput = coalesceInput
 
-    def trainKFolds(self, modelName, modelList, filenameLists, generator, epochs, saveBestOnly=False):
+    def trainKFolds(self, modelName, modelList, filenameLists, modulesList, generator, epochs, saveBestOnly=False):
         currListNum = 0
         k = len(modelList)
         for filenameList in filenameLists:
@@ -406,10 +404,10 @@ class ModelEvaluator:
                             currentTrainingList.append(filename)
                 currentModel = modelList[j]
                 numberOfFeatFiles = len(currentTrainingList)
-                history = currentModel.fitWithGenerator(generator=generator, generatorList=currentTrainingList,epochs=1,
-                                                        steps_per_epoch=numberOfFeatFiles, saveBestOnly=saveBestOnly)
+                history = currentModel.fitWithGenerator(generator=generator, generatorList=currentTrainingList, modulesList=modulesList,
+                                                        epochs=1, steps_per_epoch=numberOfFeatFiles, saveBestOnly=saveBestOnly)
                 print(">> Now testing model on fold " + str(j))
-                results = currentModel.evaluateWithGenerator(generator, filenameLists[j], len(filenameLists[j]))
+                results = currentModel.evaluateWithGenerator(generator, filenameLists[j], modulesList, len(filenameLists[j]))
                 print("Model had validation accuracy " + str(results[1]) + " and loss " + str(
                     results[0]) + " on fold " + str(j))
                 accuracies.append(results[1])
@@ -419,26 +417,27 @@ class ModelEvaluator:
                 "This epoch (" + str(i) + ") had average validation accuracy " + str(sum(accuracies) / len(accuracies)))
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
-    def trainWithKFoldEval(self, model, k, modelName, epochs, saveBestOnly=True):
-        generator = DataGenerator(self.featureFolderPath, self.labelFolderPath, self.featureList,
-                                  coalesceInput=self.coalesceInput)
+    def trainWithKFoldEval(self, model, k, modelName, modulesList, epochs, saveBestOnly=True):
+        generator = ModularDataGenerator(self.featureFolderPath, self.labelFolderPath)
         filenameLists = generator.generateKFoldLists(k)
         savedListsFile = open(modelName + "-folds.p", 'wb')
         pickle.dump(filenameLists, savedListsFile)
+        savedModulesListFile = open(modelName + "-moduleslist.p", 'wb')
+        pickle.dump(modulesList, savedModulesListFile)
         modelList = []
         for j in range(0, k):
             clonedModel = model.clone(modelName + "-fold-" + str(j))
             clonedModel.compile()
             modelList.append(clonedModel)
-        self.trainKFolds(modelName, modelList, filenameLists, generator, epochs, saveBestOnly)
+        self.trainKFolds(modelName, modelList, filenameLists, modulesList, generator, epochs, saveBestOnly)
     def trainWithSavedKFoldEval(self, modelName, epochs, saveBestOnly):
-        generator = DataGenerator(self.featureFolderPath, self.labelFolderPath, self.featureList,
-                                  coalesceInput=self.coalesceInput)
+        generator = ModularDataGenerator(self.featureFolderPath, self.labelFolderPath)
         filenameLists = pickle.load(open(modelName + "-folds.p", "rb"))
+        modulesList = pickle.load(open(modelName + "-moduleslist.p", "rb"))
         modelList = []
         for j in range(0, len(filenameLists)):
             openedModel = MModel(modelName)
             openedModel.load(modelName + "-fold-" + str(j) + ".h5")
             openedModel.compile()
             modelList.append(openedModel)
-        self.trainKFolds(modelName, modelList, filenameLists, generator, epochs, saveBestOnly)
+        self.trainKFolds(modelName, modelList, filenameLists, modulesList, generator, epochs, saveBestOnly)
