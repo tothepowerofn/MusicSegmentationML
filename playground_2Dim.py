@@ -13,7 +13,7 @@ k = 4
 numSegmentTypes = 6
 maxSegmentListLength = 15
 epochs = 10
-modelName = "PoolingModelWithDropout750"
+modelName = "Test2D"
 
 if extract:
     songMetadataIndexerModule = SongMetadataIndexerModule()
@@ -29,23 +29,21 @@ if extract:
     saveTrainingData("features", featureList, indexer, annot)
 
 if train:
-    model = FadingPoolingModelWithDropout(modelName)
+    model = Simple2DTest(modelName)
     if not load:
-        model.build(dropoutRate=0.45, numInputs=poolSize, perInputDimension=n_mfcc, numPerRecurrentLayer=100, numRecurrentLayers=1,
-                    numDenseLayerUnits=100, outputDimension=numSegmentTypes, fadingMaxUnits=5, outputExtraDim=True)
+        model.build(52, n_mfcc)
         model.summary()
 
     modulesList =[]
     pooledDataGeneratorModule = PooledDataGeneratorModule(poolSize, "features", "mfcc_input_1", outputExtraDim=True)
     segmentOrderDataGeneratorModule = SegmentOrderDataGeneratorModule("features", "segment_order_input_1", outputExtraDim=False)
-    modulesList.append(pooledDataGeneratorModule)
-
-    generatorLabeler = GeneratorLabeler1D("annotations", 22050, hop_length)
-    modularDataGenerator = ModularDataGenerator("features", "labels", modulesList, generatorLabeler,
-                                                samplesShapeIndex=1, outputExtraDim=True)
+    chunkedMFCCDataGeneratorModule = ChunkedMFCCDataGeneratorModule("features", "mfcc_input_1", 52)
+    modulesList.append(chunkedMFCCDataGeneratorModule)
+    #modulesList.append(segmentOrderDataGeneratorModule)
+    generatorLabeler = GeneratorLabeler2D("annotations", 22050, hop_length, 52)
+    modularDataGenerator = ModularDataGenerator("features", "labels", modulesList, generatorLabeler, samplesShapeIndex=1, outputExtraDim=True)
     evaluator = ModelEvaluator(modularDataGenerator)
-
     if load:
         evaluator.trainWithSavedKFoldEval(modelName, epochs, saveBestOnly=False, outputExtraDim=True)
     else:
-        evaluator.trainWithKFoldEval(model=model, k=k, modelName=modelName,  epochs=epochs, saveBestOnly=False, outputExtraDim=True)
+        evaluator.trainWithKFoldEval(model=model, k=k, modelName=modelName, epochs=epochs, saveBestOnly=False, outputExtraDim=True)

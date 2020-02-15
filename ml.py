@@ -256,17 +256,17 @@ class MModel:
         self.model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['categorical_accuracy'])
     def summary(self):
         self.model.summary()
-    def fitWithGenerator(self, generator, generatorList, modulesList, epochs, steps_per_epoch, saveBestOnly=False, **kwargs):
+    def fitWithGenerator(self, generator, generatorList, epochs, steps_per_epoch, saveBestOnly=False, **kwargs):
         checkpoint = ModelCheckpoint(self.modelName + ".h5", monitor='categorical_accuracy', verbose=1,
                                      save_best_only=saveBestOnly, mode="max")
         callbacks_list = [checkpoint]
-        history = self.model.fit(generator.generateFromList(generatorList, modulesList), epochs=epochs,
+        history = self.model.fit(generator.generateFromList(generatorList), epochs=epochs,
                                    steps_per_epoch=steps_per_epoch,
                                    callbacks=callbacks_list)
         return history
 
-    def evaluateWithGenerator(self, generator, generatorList, modulesList, steps):
-        results = self.model.evaluate(generator.generateFromList(generatorList, modulesList),
+    def evaluateWithGenerator(self, generator, generatorList, steps):
+        results = self.model.evaluate(generator.generateFromList(generatorList),
                               steps=steps)
         return results
 
@@ -333,7 +333,8 @@ class PoolingModelWithDropout(MModel):
 
 class FadingPoolingModelWithDropout(MModel):
     def build(self, dropoutRate=0.5, numInputs=400, perInputDimension=10, fadingMaxUnits=None, perInputDenseUnitFadingList=None, numPerRecurrentLayer=60, numRecurrentLayers=2,
-              numDenseLayerUnits=40, outputDimension=6):
+              numDenseLayerUnits=40, outputDimension=6, outputExtraDim=True):
+
         gradingList = perInputDenseUnitFadingList
         if not gradingList:
             gradingList = []
@@ -350,10 +351,16 @@ class FadingPoolingModelWithDropout(MModel):
         inputLayerList = []
         inputDenseList = []
         for i in range(0, numInputs):
-            input = Input(shape=(None, perInputDimension))
-            inputLayerList.append(input)
-            denseInputLayer = Dense(gradingList[i], activation='relu')(input)
-            inputDenseList.append(denseInputLayer)
+            if outputExtraDim:
+                input = Input(shape=(None, perInputDimension))
+                inputLayerList.append(input)
+                denseInputLayer = Dense(gradingList[i], activation='relu')(input)
+                inputDenseList.append(denseInputLayer)
+            else:
+                input = Input(shape=(perInputDimension,))
+                inputLayerList.append(input)
+                denseInputLayer = Dense(gradingList[i], activation='relu')(input)
+                inputDenseList.append(denseInputLayer)
 
         # Concat Layer
         merged = Concatenate()(inputDenseList)
@@ -365,13 +372,14 @@ class FadingPoolingModelWithDropout(MModel):
         for i in range(0, numRecurrentLayers):
             rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
                 currentRecurrentLayerInput)
-
             currentRecurrentLayerInput = rnnLayer
         dropoutLayer2 = Dropout(dropoutRate)(currentRecurrentLayerInput)
         outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(dropoutLayer2)
 
         # Defining the actual model
         model = Model(inputs=inputLayerList, outputs=outputLayer)
+        for layer in model.layers:
+            print(layer.output_shape)
         self.model = model
 
 class FadingPoolingModelWithDropoutAndSegOrder(MModel):
@@ -408,7 +416,7 @@ class FadingPoolingModelWithDropoutAndSegOrder(MModel):
         dropoutLayer1 = Dropout(dropoutRate)(denseLayer)
         currentRecurrentLayerInput = dropoutLayer1
         for i in range(0, numRecurrentLayers-1):
-            rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+            rnnLayer = LSTM(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
                 currentRecurrentLayerInput)
 
             currentRecurrentLayerInput = rnnLayer
@@ -421,14 +429,24 @@ class FadingPoolingModelWithDropoutAndSegOrder(MModel):
         # Defining the actual model
         model = Model(inputs=inputLayerList, outputs=outputLayer)
         self.model = model
+class Simple2DTest(MModel):
+    def build(self, jumpLength, numFeats):
+        input = Input(shape=(jumpLength, numFeats))
+        conv1 = Conv1D(filters=32,
+                       kernel_size=8,
+                       strides=1,
+                       activation='relu')(input)
+        flatten = Flatten()(conv1)
+        dense = Dense(6)(flatten)
+        model = Model(inputs=input, outputs=dense)
+        self.model = model
 
 
 class ModelEvaluator:
-    def __init__(self, featureFolderPath, labelFolderPath):
-        self.featureFolderPath = featureFolderPath
-        self.labelFolderPath = labelFolderPath
-
-    def trainKFolds(self, modelName, modelList, filenameLists, modulesList, generator, epochs, saveBestOnly=False):
+    def __init__(self, generator):
+        self.generator = generator
+    def trainKFolds(self, modelName, modelList, filenameLists, epochs, saveBestOnly=False):
+        generator = self.generator
         currListNum = 0
         k = len(modelList)
         for filenameList in filenameLists:
@@ -452,10 +470,10 @@ class ModelEvaluator:
                             currentTrainingList.append(filename)
                 currentModel = modelList[j]
                 numberOfFeatFiles = len(currentTrainingList)
-                history = currentModel.fitWithGenerator(generator=generator, generatorList=currentTrainingList, modulesList=modulesList,
+                history = currentModel.fitWithGenerator(generator=generator, generatorList=currentTrainingList,
                                                         epochs=1, steps_per_epoch=numberOfFeatFiles, saveBestOnly=saveBestOnly)
                 print(">> Now testing model on fold " + str(j))
-                results = currentModel.evaluateWithGenerator(generator, filenameLists[j], modulesList, len(filenameLists[j]))
+                results = currentModel.evaluateWithGenerator(generator, filenameLists[j], len(filenameLists[j]))
                 print("Model had validation accuracy " + str(results[1]) + " and loss " + str(
                     results[0]) + " on fold " + str(j))
                 accuracies.append(results[1])
@@ -465,21 +483,21 @@ class ModelEvaluator:
                 "This epoch (" + str(i) + ") had average validation accuracy " + str(sum(accuracies) / len(accuracies)))
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
-    def trainWithKFoldEval(self, model, k, modelName, modulesList, epochs, saveBestOnly=True):
-        generator = ModularDataGenerator(self.featureFolderPath, self.labelFolderPath)
+    def trainWithKFoldEval(self, model, k, modelName, epochs, outputExtraDim=True, saveBestOnly=True):
+        generator = self.generator
         filenameLists = generator.generateKFoldLists(k)
         savedListsFile = open(modelName + "-folds.p", 'wb')
         pickle.dump(filenameLists, savedListsFile)
         savedModulesListFile = open(modelName + "-moduleslist.p", 'wb')
-        pickle.dump(modulesList, savedModulesListFile)
+        pickle.dump(generator.modulesList, savedModulesListFile)
         modelList = []
         for j in range(0, k):
             clonedModel = model.clone(modelName + "-fold-" + str(j))
             clonedModel.compile()
             modelList.append(clonedModel)
-        self.trainKFolds(modelName, modelList, filenameLists, modulesList, generator, epochs, saveBestOnly)
-    def trainWithSavedKFoldEval(self, modelName, epochs, saveBestOnly):
-        generator = ModularDataGenerator(self.featureFolderPath, self.labelFolderPath)
+        self.trainKFolds(modelName, modelList, filenameLists, epochs, saveBestOnly)
+    def trainWithSavedKFoldEval(self, modelName, epochs, saveBestOnly, generatorLabeler, outputExtraDim=True):
+        generator = self.generator
         filenameLists = pickle.load(open(modelName + "-folds.p", "rb"))
         modulesList = pickle.load(open(modelName + "-moduleslist.p", "rb"))
         modelList = []
@@ -488,4 +506,4 @@ class ModelEvaluator:
             openedModel.load(modelName + "-fold-" + str(j) + ".h5")
             openedModel.compile()
             modelList.append(openedModel)
-        self.trainKFolds(modelName, modelList, filenameLists, modulesList, generator, epochs, saveBestOnly)
+        self.trainKFolds(modelName, modelList, filenameLists, epochs, saveBestOnly)

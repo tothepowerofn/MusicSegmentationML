@@ -368,22 +368,47 @@ class DataGeneratorModule():
         pass
 
 class BasicDataGeneratorModule():
-    def __init__(self, featureFolderBasePath, featureFolderName):
+    def __init__(self, featureFolderBasePath, featureFolderName, outputExtraDim=True):
         self.featureFolderBasePath = featureFolderBasePath
         super().__init__(featureFolderBasePath)
         self.featureFolderName = featureFolderName
+        self.outputExtraDim = outputExtraDim
     def loadForFile(self, filepath):
         features = genfromtxt(filepath, delimiter=',')
-        return [features[None, :, :]]
+        if self.outputExtraDim:
+            return [features[None, :, :]]
+        else:
+            return [features]
     def load(self, name):
         featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
         return self.loadForFile(featureFilePath)
 
+class ChunkedMFCCDataGeneratorModule(DataGeneratorModule):
+    def __init__(self, featureFolderBasePath, featureFolderName, chunkSize):
+        self.featureFolderBasePath = featureFolderBasePath
+        self.chunkSize = chunkSize
+        super().__init__(featureFolderBasePath)
+        self.featureFolderName = featureFolderName
+    def loadForFile(self, filepath):
+        print("hi")
+        features1D = genfromtxt(filepath, delimiter=',')
+        features1DLength = features1D.shape[0]
+        stacked = np.stack((features1D[i-self.chunkSize:i, :] for i in range(self.chunkSize, features1DLength, self.chunkSize)) , axis=0)
+        stacked4D = stacked[None, :, :, :]
+        print(stacked4D.shape)
+        return [stacked]
+    def load(self, name):
+        featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
+        loadedArr = self.loadForFile(featureFilePath)
+        print(loadedArr.shape)
+        return loadedArr
+
 class PooledDataGeneratorModule(DataGeneratorModule):
-    def __init__(self, stepsToPool, featureFolderBasePath, featureFolderName):
+    def __init__(self, stepsToPool, featureFolderBasePath, featureFolderName, outputExtraDim=True):
         self.stepsToPool = stepsToPool
         super().__init__(featureFolderBasePath)
         self.featureFolderName = featureFolderName
+        self.outputExtraDim = outputExtraDim
         if stepsToPool < 1:
             raise("You need to pool at least 1 time step!")
     def loadForFile(self, filepath):
@@ -392,32 +417,94 @@ class PooledDataGeneratorModule(DataGeneratorModule):
         for i in range(0,self.stepsToPool):
             base = np.zeros((i, features.shape[1]))
             stacked = np.vstack([base, features[0:features.shape[0]-i,:]])
-            feats_list.append( stacked[None, :, :] )
+            if self.outputExtraDim:
+                feats_list.append( stacked[None, :, :] )
+            else:
+                feats_list.append(stacked)
         return feats_list
     def load(self, name):
         featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
         return self.loadForFile(featureFilePath)
 
+
 class SegmentOrderDataGeneratorModule(DataGeneratorModule):
-    def __init__(self, featureFolderBasePath, featureFolderName):
+    def __init__(self, featureFolderBasePath, featureFolderName, outputExtraDim=True):
         super().__init__(featureFolderBasePath)
         self.featureFolderName = featureFolderName
+        self.outputExtraDim = outputExtraDim
     def loadForFile(self, filePath, examplesProperties):
         features = genfromtxt(filePath, delimiter=',')
         name = os.path.basename(filePath).split("-" + self.featureFolderName + ".csv")[0]
         numRows = examplesProperties[name]["mfcc_length"]
         featuresRow = features.flatten()[None, :]
         finalFeatures = np.repeat(featuresRow, numRows, axis=0)
-        return [finalFeatures[None, :, :]]
+        if(self.outputExtraDim):
+            return [finalFeatures[None, :, :]]
+        else:
+            return [finalFeatures]
     def load(self, name):
         featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
         examplesProperties = pickle.load(open(self.featureFolderBasePath + "/" + "properties.p", "rb"))
         return self.loadForFile(featureFilePath, examplesProperties)
 
+class GeneratorLabeler1D:
+    def __init__(self, dataPath, sample_rate, hop_length):
+        self.dataPath = dataPath
+        self.sampleRate = sample_rate
+        self.hopLength = hop_length
+    def getLabels(self, songName, featuresLength, outputExtraDim=True):
+        annotationPath = self.dataPath + "/" + songName + "-annotation.csv"
+        annotationData = genfromtxt(annotationPath, delimiter=',')
+        numWavSamples = featuresLength
+        classifications = np.zeros(shape=(numWavSamples, 1))
+        lastHop = 0
+        for segment in annotationData:
+            currentHop = timestampToHop(segment[0], self.sampleRate, self.hopLength)
+            classifications[lastHop:currentHop, 0] = segment[1]
+            lastHop = currentHop
+        classifications[lastHop:numWavSamples, 0] = classifications[lastHop - 1, 0]
+        if outputExtraDim:
+            return to_categorical(classifications)[None,:,:]
+        else:
+            return to_categorical(classifications)
+
+
+
+class GeneratorLabeler2D:
+    def __init__(self, dataPath, sample_rate, hop_length, jumpLength):
+        self.dataPath = dataPath
+        self.sampleRate = sample_rate
+        self.hopLength = hop_length
+        self.jumpLength = jumpLength
+
+    def timestampToSampleNumber(time, sampleRate):
+        return time * sampleRate
+    def timestampToJump(self, time, sampleRate, hopLength, jumpLength):
+        return int(math.ceil(timestampToSampleNumber(time, sampleRate) / (hopLength*jumpLength)))
+
+    def getLabels(self, songName, featuresLength):
+        annotationPath = self.dataPath + "/" + songName + "-annotation.csv"
+        annotationData = genfromtxt(annotationPath, delimiter=',')
+
+        classifications = np.zeros(shape=(featuresLength, 1))
+        print(classifications.shape)
+        lastHop = 0
+        for segment in annotationData:
+            currentJump = self.timestampToJump(segment[0], self.sampleRate, self.hopLength, self.jumpLength)
+            classifications[lastHop:currentJump, 0] = segment[1]
+            lastHop = currentJump
+        classifications[lastHop:featuresLength, 0] = classifications[lastHop - 1, 0]
+        print(classifications.shape)
+        to_categorical(classifications)[:, :]
+
 class ModularDataGenerator():
-    def __init__(self, featuresBasePath, labelsFolderName):
+    def __init__(self, featuresBasePath, labelsFolderName, modulesList, generatorLabeler, samplesShapeIndex=1, outputExtraDim=True):
         self.featuresBasePath = featuresBasePath
         self.labelsFolderName = labelsFolderName
+        self.outputExtraDim = outputExtraDim
+        self.modulesList = modulesList
+        self.generatorLabeler = generatorLabeler
+        self.samplesShapeIndex = samplesShapeIndex
     def getNumberOfFeatFiles(self):
         return len([f for f in os.listdir(self.featuresBasePath + "/" + self.labelsFolderName) if
                     f.endswith('.csv') and os.path.isfile(os.path.join(self.featuresBasePath + "/" + self.labelsFolderName, f))])
@@ -439,15 +526,16 @@ class ModularDataGenerator():
                 csvFilenames.append(filename)
         random.shuffle(csvFilenames)
         return self.chunkIt(csvFilenames, k)
-    def generateFromList(self, filenameList, modulesList):
+    def generateFromList(self, filenameList):
         while True:
             for filename in filenameList:
                 if filename.endswith(".csv"):
                     name = (os.path.splitext(filename)[0]).split("-" + self.labelsFolderName)[0]
                     labelFilepath = self.featuresBasePath + "/" + self.labelsFolderName + "/" + name + "-" + self.labelsFolderName + ".csv"
-                    labs = genfromtxt(labelFilepath, delimiter=',')
                     featuresList = []
-                    for module in modulesList:
+                    for module in self.modulesList:
                         featuresList.extend(module.load(name))
-                    labels = to_categorical(labs)[None, :, :]
+
+                    featureLen = featuresList[0].shape[self.samplesShapeIndex]
+                    labels = self.generatorLabeler.getLabels(name, featureLen)
                     yield (featuresList, labels)
