@@ -506,12 +506,16 @@ class ModelEvaluator:
         for model in modelList:
             model.compile()
         print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        epochAccuracies = savedAccuracies
-        if not epochAccuracies:
-            epochAccuracies = []
+        accuraciesAll = savedAccuracies
+        if not accuraciesAll:
+            accuraciesAll = []
+            for i in range(0, k):
+                accuraciesAll.append([])
+
         for i in range(1, epochs + 1):
-            accuracies = []
+            thisEpochAccs = []
             for j in range(0, k):
+                accuracies = accuraciesAll[j]
                 print("----------------------------------------------------------------------------")
                 print(">> Currently on epoch " + str(i) + " of " + str(epochs) + " with fold " + str(j))
                 print(">> Now training folds that are not " + str(j))
@@ -528,19 +532,26 @@ class ModelEvaluator:
                 results = currentModel.evaluateWithGenerator(generator, filenameLists[j], len(filenameLists[j]))
                 print("Model had validation accuracy " + str(results[1]) + " and loss " + str(
                     results[0]) + " on fold " + str(j))
-                accuracies.append(results[1])
                 print("----------------------------------------------------------------------------")
                 print(" ")
+                accuracies.append(results[1])
+                thisEpochAccs.append(results[1])
             print(
-                "This epoch (" + str(i) + ") had average validation accuracy " + str(sum(accuracies) / len(accuracies)))
+                "This epoch (" + str(i) + ") had average validation accuracy " + str(sum(thisEpochAccs) / len(thisEpochAccs)))
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-            epochAccuracies.append(sum(accuracies) / len(accuracies))
-            savedEpochAccFile = open(modelName + "-accs.p", 'wb')
-            pickle.dump(filenameLists, savedEpochAccFile)
+            savedAccFile = open(modelName + "-accs.p", 'wb')
+            pickle.dump(accuraciesAll, savedAccFile)
+        bestAccs = []
+        for i in range(0, k):
+            bestAccs.append(max(accuraciesAll[i]))
+        bestAccAvg = sum(bestAccs) / len(bestAccs)
         print("")
         print("")
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        print("Your best epoch validation accuracy for this model is " +  str(max(epochAccuracies)))
+        print("Your best validation accuracy for this model is " +  str(bestAccAvg) + ".")
+        print("Here are the best fold accuracies you had:")
+        for i in range(0,k):
+            print("Fold " + str(i) + ": " + str(bestAccs[i]))
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     def trainWithKFoldEval(self, model, k, modelName, epochs, outputExtraDim=True, saveBestOnly=True):
         generator = self.generator
