@@ -12,7 +12,7 @@ poolSize = 10
 k = 4
 numSegmentTypes = 6
 maxSegmentListLength = 15
-epochs = 10
+epochs = 20
 modelName = "Test2D"
 
 if extract:
@@ -33,7 +33,7 @@ if train:
     if not load:
         model.build(numClasses=numSegmentTypes, inputShapeList=[(26,10),(104,10),(208,10),(208,10)], inputConvFilterNumList=[256, 128, 64, 64],
                     inputConvKernelSizeList=[8,8,8,8], convMaxPoolSizeList=[None, 2, 4,8], convDenseSizeList=[100,50,25,25],
-                    postConvDropout=None, preRNNDropout=None, numRNNLayers=2, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
+                    postConvDropout=None, preRNNDropout=0.3, numRNNLayers=2, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
                     postRNNDropout=None)
         model.summary()
 
