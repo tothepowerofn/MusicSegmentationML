@@ -4,7 +4,7 @@ from MusicSegmentationML.ml import *
 
 extract = False
 train = True
-load = True
+load = False
 hop_length = 4096
 n_fft = 8192
 n_mfcc = 10
