@@ -4,7 +4,7 @@ from MusicSegmentationML.ml import *
 
 extract = False
 train = True
-load = False
+load = True
 hop_length = 4096
 n_fft = 8192
 n_mfcc = 10
@@ -57,6 +57,6 @@ if train:
     modularDataGenerator = ModularDataGenerator("features", "labels", modulesList, generatorLabeler, samplesShapeIndex=0, outputExtraDim=True)
     evaluator = ModelEvaluator(modularDataGenerator)
     if load:
-        evaluator.trainWithSavedKFoldEval(modelName, epochs, saveBestOnly=False, outputExtraDim=True)
+        evaluator.trainWithSavedKFoldEval(modelName, epochs, generatorLabeler=generatorLabeler, saveBestOnly=False, outputExtraDim=True)
     else:
         evaluator.trainWithKFoldEval(model=model, k=k, modelName=modelName, epochs=epochs, saveBestOnly=False, outputExtraDim=True)

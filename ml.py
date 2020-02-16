@@ -494,7 +494,7 @@ class Faded2DConvModel(MModel):
 class ModelEvaluator:
     def __init__(self, generator):
         self.generator = generator
-    def trainKFolds(self, modelName, modelList, filenameLists, epochs, savedAccuracies = None, saveBestOnly=False):
+    def trainKFolds(self, modelName, modelList, filenameLists, epochs, savedAccuracies=None, saveBestOnly=False):
         generator = self.generator
         currListNum = 0
         k = len(modelList)
@@ -576,4 +576,4 @@ class ModelEvaluator:
             openedModel.load(modelName + "-fold-" + str(j) + ".h5")
             openedModel.compile()
             modelList.append(openedModel)
-        self.trainKFolds(modelName, modelList, filenameLists, epochs, saveBestOnly, savedAccuracies=accs)
+        self.trainKFolds(modelName, modelList, filenameLists, epochs, savedAccuracies=accs, saveBestOnly=saveBestOnly)
