@@ -548,10 +548,17 @@ class ModelEvaluator:
         print("")
         print("")
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-        print("Your best validation accuracy for this model is " +  str(bestAccAvg) + ".")
+        print("Your superscored validation accuracy for this model is " +  str(bestAccAvg) + ".")
         print("Here are the best fold accuracies you had:")
         for i in range(0,k):
             print("Fold " + str(i) + ": " + str(bestAccs[i]))
+        epochAccs = []
+        for i in range(0,epochs):
+            currSum = 0
+            for j in range(0,k):
+                currSum += accuraciesAll[j][i]
+            epochAccs.append(currSum/len(accuraciesAll[j]))
+        print("Your best epoch validation accuracy is " + str(max(epochAccs)) + ".")
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     def trainWithKFoldEval(self, model, k, modelName, epochs, outputExtraDim=True, saveBestOnly=True):
         generator = self.generator
