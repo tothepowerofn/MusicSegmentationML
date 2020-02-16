@@ -10,4 +10,4 @@ This project is written in Python with Keras and provides functions and classes 
 
 The primary features extracted from the audio WAV files (at the moment) are MFCC features. Right now, the best model, Faded2DConvModel (see Model_Thoughts.txt for params), achieves ~64% 12-fold validation accuracy on a dataset of 25 different songs.
 
-You can read more about this project [here](tothepowerofn.io/musicsegmentationml/). To provide comments/critiques/suggestions (would be much appreciated!), to request the data used for this project or to make any other inquiries, send an email to me\[at\]nathancontreras\[dot\]com
+You can read more about this project [here](tothepowerofn.io/musicsegmentationml/). To provide comments/critiques/suggestions (would be much appreciated!), to request the data used for this project or to make any other inquiries, send an email to me\[at\]nathancontreras\[dot\]com.
