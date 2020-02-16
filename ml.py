@@ -2,7 +2,7 @@ import keras as k
 from keras.callbacks import ModelCheckpoint
 from keras.models import Model
 from keras.layers import (BatchNormalization, Conv1D, Dense, Input,
-                          TimeDistributed, Activation, Bidirectional, SimpleRNN, GRU, LSTM, MaxPooling1D)
+                          TimeDistributed, Activation, Bidirectional, SimpleRNN, GRU, LSTM, MaxPooling1D, Reshape)
 from keras.utils import to_categorical
 from keras.layers import Concatenate
 from numpy import zeros, newaxis
@@ -430,22 +430,71 @@ class FadingPoolingModelWithDropoutAndSegOrder(MModel):
         model = Model(inputs=inputLayerList, outputs=outputLayer)
         self.model = model
 class Simple2DTest(MModel):
-    def build(self, jumpLength, numFeats):
-        input = Input(shape=(jumpLength, numFeats))
-        conv1 = Conv1D(filters=32,
+    def build(self, chunkLength, numFeats, numRecUnits):
+        input = Input(shape=(chunkLength, numFeats))
+        conv1 = Conv1D(filters=256,
                        kernel_size=8,
                        strides=1,
-                       activation='relu')(input)
-        flatten = Flatten()(conv1)
-        dense = Dense(6)(flatten)
-        model = Model(inputs=input, outputs=dense)
+                       activation='relu', name="conv1D")(input)
+        flatten = Flatten(name="flatten1")(conv1)
+        dropoutLayer = Dropout(0.5)(flatten)
+        reshaped = Reshape((1, flatten._keras_shape[1]))(dropoutLayer)
+        rnnLayer = GRU(50, activation='relu', return_sequences=True, implementation=2, recurrent_dropout=0.5)(
+            reshaped)
+        rnnLayer2 = GRU(50, activation='relu', return_sequences=True, implementation=2, recurrent_dropout=0.5)(
+            rnnLayer)
+        dropoutLayer2 = Dropout(0.5)(rnnLayer2)
+        flatten2 = Flatten()(dropoutLayer2)
+        outputLayer = Dense(6, activation='softmax', name='softmax2')(flatten2)
+        model = Model(inputs=input, outputs=outputLayer)
         self.model = model
 
+class Faded2DConvModel(MModel):
+    def build(self, numClasses, inputShapeList, inputConvFilterNumList, inputConvKernelSizeList, convDenseSizeList, convMaxPoolSizeList,
+              convDenseActivation="relu", postConvDropout=None, preRNNDenseSize=None, preRNNDenseActivation="relu",
+              preRNNDropout=None, numRNNLayers=2, rNNUnitsList=[100,100], rnnDropoutList = [0,0], postRNNDropout=None):
+        inputLayersList = []
+        convSectionOutputList = []
+        for i in range(len(inputShapeList)):
+            input = Input(shape=inputShapeList[i])
+            inputLayersList.append(input)
+            conv = Conv1D(filters=inputConvFilterNumList[i],kernel_size=inputConvKernelSizeList[i],strides=1,
+                                  activation='relu')(input)
+            n = conv
+            if convMaxPoolSizeList[i]:
+                n = MaxPooling1D(pool_size=convMaxPoolSizeList[i])(n)
+            n = Flatten()(n)
+            if convDenseSizeList[i]:
+                n = Dense(convDenseSizeList[i], activation=convDenseActivation)(n)
+            convSectionOutputList.append(n)
+        next = 0
+        if(len(convSectionOutputList) > 1):
+            next = Concatenate()(convSectionOutputList)
+        else:
+            next = convSectionOutputList[0]
+
+        if postConvDropout:
+            next = Dropout(postConvDropout)(next)
+        if preRNNDenseSize:
+            next = Dense(preRNNDenseSize, activation=preRNNDenseActivation)(next)
+        if preRNNDropout:
+            next = Dropout(preRNNDropout)(next)
+        reshaped = Reshape((1, next._keras_shape[1]))(next)
+        next = reshaped
+        for i in range(0, numRNNLayers):
+            next = GRU(rNNUnitsList[i], activation='relu', return_sequences=True, implementation=2, recurrent_dropout=rnnDropoutList[i])(
+                next)
+        if postRNNDropout:
+            next = Dropout(postRNNDropout)(next)
+        next = Flatten()(next)
+        outputLayer = Dense(numClasses, activation='softmax')(next)
+        model = Model(inputs=inputLayersList, outputs=outputLayer)
+        self.model = model
 
 class ModelEvaluator:
     def __init__(self, generator):
         self.generator = generator
-    def trainKFolds(self, modelName, modelList, filenameLists, epochs, saveBestOnly=False):
+    def trainKFolds(self, modelName, modelList, filenameLists, epochs, savedAccuracies = None, saveBestOnly=False):
         generator = self.generator
         currListNum = 0
         k = len(modelList)
@@ -457,6 +506,9 @@ class ModelEvaluator:
         for model in modelList:
             model.compile()
         print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        epochAccuracies = savedAccuracies
+        if not epochAccuracies:
+            epochAccuracies = []
         for i in range(1, epochs + 1):
             accuracies = []
             for j in range(0, k):
@@ -482,7 +534,14 @@ class ModelEvaluator:
             print(
                 "This epoch (" + str(i) + ") had average validation accuracy " + str(sum(accuracies) / len(accuracies)))
             print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
+            epochAccuracies.append(sum(accuracies) / len(accuracies))
+            savedEpochAccFile = open(modelName + "-accs.p", 'wb')
+            pickle.dump(filenameLists, savedEpochAccFile)
+        print("")
+        print("")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print("Your best epoch validation accuracy for this model is " +  str(max(epochAccuracies)))
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     def trainWithKFoldEval(self, model, k, modelName, epochs, outputExtraDim=True, saveBestOnly=True):
         generator = self.generator
         filenameLists = generator.generateKFoldLists(k)
@@ -497,7 +556,7 @@ class ModelEvaluator:
             modelList.append(clonedModel)
         self.trainKFolds(modelName, modelList, filenameLists, epochs, saveBestOnly)
     def trainWithSavedKFoldEval(self, modelName, epochs, saveBestOnly, generatorLabeler, outputExtraDim=True):
-        generator = self.generator
+        accs = pickle.load(open(modelName + "-accs.p", "rb"))
         filenameLists = pickle.load(open(modelName + "-folds.p", "rb"))
         modulesList = pickle.load(open(modelName + "-moduleslist.p", "rb"))
         modelList = []
@@ -506,4 +565,4 @@ class ModelEvaluator:
             openedModel.load(modelName + "-fold-" + str(j) + ".h5")
             openedModel.compile()
             modelList.append(openedModel)
-        self.trainKFolds(modelName, modelList, filenameLists, epochs, saveBestOnly)
+        self.trainKFolds(modelName, modelList, filenameLists, epochs, saveBestOnly, savedAccuracies=accs)

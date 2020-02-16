@@ -384,24 +384,55 @@ class BasicDataGeneratorModule():
         return self.loadForFile(featureFilePath)
 
 class ChunkedMFCCDataGeneratorModule(DataGeneratorModule):
-    def __init__(self, featureFolderBasePath, featureFolderName, chunkSize):
+    def __init__(self, featureFolderBasePath, featureFolderName, chunkSize, jumpLength):
         self.featureFolderBasePath = featureFolderBasePath
         self.chunkSize = chunkSize
+        self.jumpLength = jumpLength
         super().__init__(featureFolderBasePath)
         self.featureFolderName = featureFolderName
     def loadForFile(self, filepath):
-        print("hi")
+        jumpLength = self.jumpLength
+        chunkSize = self.chunkSize
         features1D = genfromtxt(filepath, delimiter=',')
         features1DLength = features1D.shape[0]
-        stacked = np.stack((features1D[i-self.chunkSize:i, :] for i in range(self.chunkSize, features1DLength, self.chunkSize)) , axis=0)
-        stacked4D = stacked[None, :, :, :]
-        print(stacked4D.shape)
-        return [stacked]
+        featudes1DWidth = features1D.shape[1]
+        beginningArrs = []
+        iInPadded = chunkSize-jumpLength
+        while iInPadded >= 0:
+            zeros = np.zeros((iInPadded, featudes1DWidth))
+            feats = features1D[0:chunkSize-iInPadded, :]
+            beginArr = np.vstack([zeros, feats])
+            beginningArrs.append(beginArr)
+            iInPadded -= jumpLength
+        padded = np.stack(beginningArrs, axis=0)
+        stacked = np.stack((features1D[i:i+chunkSize, :] for i in range((-1)*iInPadded, features1DLength-chunkSize, jumpLength)) , axis=0)
+        stackedWithPadded = np.vstack([padded, stacked])
+        return [stackedWithPadded]
     def load(self, name):
         featureFilePath = self.featureFolderBasePath + "/" + self.featureFolderName + "/" + name + "-" + self.featureFolderName + ".csv"
         loadedArr = self.loadForFile(featureFilePath)
-        print(loadedArr.shape)
         return loadedArr
+
+class Delayed2DDataGeneratorModule(DataGeneratorModule):
+    def __init__(self, moduleToDelay, stepsToDelay):
+        self.moduleToDelay = moduleToDelay
+        self.stepsToDelay = stepsToDelay
+    def load(self, name):
+        featsList = self.moduleToDelay.load(name)
+        newFeatsList = []
+        for feat in featsList:
+            featLength = feat.shape[0]
+            padShape = (1, feat.shape[1], feat.shape[2])
+            stackedZeros = np.vstack((np.zeros(padShape) for i in range(0, self.stepsToDelay)))
+            adjustedFeats = feat[0:featLength-self.stepsToDelay,:,:]
+            newFeat = np.vstack([stackedZeros, adjustedFeats])
+            newFeatsList.append(newFeat)
+            # for arr in newFeat:
+            #     print("new")
+            #     for ar in arr:
+            #         print(ar)
+        return newFeatsList
+
 
 class PooledDataGeneratorModule(DataGeneratorModule):
     def __init__(self, stepsToPool, featureFolderBasePath, featureFolderName, outputExtraDim=True):
@@ -468,15 +499,13 @@ class GeneratorLabeler1D:
         else:
             return to_categorical(classifications)
 
-
-
 class GeneratorLabeler2D:
-    def __init__(self, dataPath, sample_rate, hop_length, jumpLength):
+    def __init__(self, dataPath, sample_rate, hop_length, jumpLength, numClasses=6):
         self.dataPath = dataPath
         self.sampleRate = sample_rate
         self.hopLength = hop_length
         self.jumpLength = jumpLength
-
+        self.numClasses = numClasses
     def timestampToSampleNumber(time, sampleRate):
         return time * sampleRate
     def timestampToJump(self, time, sampleRate, hopLength, jumpLength):
@@ -487,15 +516,16 @@ class GeneratorLabeler2D:
         annotationData = genfromtxt(annotationPath, delimiter=',')
 
         classifications = np.zeros(shape=(featuresLength, 1))
-        print(classifications.shape)
-        lastHop = 0
+        lastJump = 0
         for segment in annotationData:
             currentJump = self.timestampToJump(segment[0], self.sampleRate, self.hopLength, self.jumpLength)
-            classifications[lastHop:currentJump, 0] = segment[1]
-            lastHop = currentJump
-        classifications[lastHop:featuresLength, 0] = classifications[lastHop - 1, 0]
-        print(classifications.shape)
-        to_categorical(classifications)[:, :]
+            classifications[lastJump:currentJump, 0] = segment[1]
+            lastJump = currentJump
+        if lastJump < featuresLength:
+            classifications[lastJump:featuresLength, 0] = classifications[lastJump - 1, 0]
+        # for classification in classifications:
+        #     print(classification)
+        return to_categorical(classifications, self.numClasses)[:, :]
 
 class ModularDataGenerator():
     def __init__(self, featuresBasePath, labelsFolderName, modulesList, generatorLabeler, samplesShapeIndex=1, outputExtraDim=True):

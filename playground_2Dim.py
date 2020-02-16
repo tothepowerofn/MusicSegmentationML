@@ -29,19 +29,29 @@ if extract:
     saveTrainingData("features", featureList, indexer, annot)
 
 if train:
-    model = Simple2DTest(modelName)
+    model = Faded2DConvModel(modelName)
     if not load:
-        model.build(52, n_mfcc)
+        model.build(numClasses=numSegmentTypes, inputShapeList=[(26,10),(104,10),(208,10),(208,10)], inputConvFilterNumList=[256, 128, 64, 64],
+                    inputConvKernelSizeList=[8,8,8,8], convMaxPoolSizeList=[None, 2, 4,8], convDenseSizeList=[100,50,25,25],
+                    postConvDropout=None, preRNNDropout=None, numRNNLayers=2, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
+                    postRNNDropout=None)
         model.summary()
 
     modulesList =[]
-    pooledDataGeneratorModule = PooledDataGeneratorModule(poolSize, "features", "mfcc_input_1", outputExtraDim=True)
-    segmentOrderDataGeneratorModule = SegmentOrderDataGeneratorModule("features", "segment_order_input_1", outputExtraDim=False)
-    chunkedMFCCDataGeneratorModule = ChunkedMFCCDataGeneratorModule("features", "mfcc_input_1", 52)
-    modulesList.append(chunkedMFCCDataGeneratorModule)
-    #modulesList.append(segmentOrderDataGeneratorModule)
-    generatorLabeler = GeneratorLabeler2D("annotations", 22050, hop_length, 52)
-    modularDataGenerator = ModularDataGenerator("features", "labels", modulesList, generatorLabeler, samplesShapeIndex=1, outputExtraDim=True)
+    chunkedMFCCDataGeneratorModuleNear = ChunkedMFCCDataGeneratorModule("features", "mfcc_input_1", 26, 13)
+    chunkedMFCCDataGeneratorModuleMid = ChunkedMFCCDataGeneratorModule("features", "mfcc_input_1", 104, 13)
+    chunkedMFCCDataGeneratorModuleFar = ChunkedMFCCDataGeneratorModule("features", "mfcc_input_1", 208, 13)
+    chunkedMFCCDataGeneratorModuleVeryFar = ChunkedMFCCDataGeneratorModule("features", "mfcc_input_1", 208, 13)
+    delayed2DDataGeneratorModuleMid = Delayed2DDataGeneratorModule(chunkedMFCCDataGeneratorModuleMid, 2)
+    delayed2DDataGeneratorModuleFar = Delayed2DDataGeneratorModule(chunkedMFCCDataGeneratorModuleFar, 10)
+    delayed2DDataGeneratorModuleVeryFar = Delayed2DDataGeneratorModule(chunkedMFCCDataGeneratorModuleVeryFar, 26)
+
+    modulesList.append(chunkedMFCCDataGeneratorModuleNear)
+    modulesList.append(delayed2DDataGeneratorModuleMid)
+    modulesList.append(delayed2DDataGeneratorModuleFar)
+    modulesList.append(delayed2DDataGeneratorModuleVeryFar)
+    generatorLabeler = GeneratorLabeler2D("annotations", 22050, hop_length, 13)
+    modularDataGenerator = ModularDataGenerator("features", "labels", modulesList, generatorLabeler, samplesShapeIndex=0, outputExtraDim=True)
     evaluator = ModelEvaluator(modularDataGenerator)
     if load:
         evaluator.trainWithSavedKFoldEval(modelName, epochs, saveBestOnly=False, outputExtraDim=True)
