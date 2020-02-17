@@ -367,7 +367,7 @@ class DataGeneratorModule():
     def load(self, name):
         pass
 
-class BasicDataGeneratorModule():
+class BasicDataGeneratorModule(DataGeneratorModule):
     def __init__(self, featureFolderBasePath, featureFolderName, outputExtraDim=True):
         self.featureFolderBasePath = featureFolderBasePath
         super().__init__(featureFolderBasePath)

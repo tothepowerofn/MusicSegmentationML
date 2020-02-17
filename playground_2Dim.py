@@ -34,7 +34,7 @@ if train:
                     inputConvFilterNumList=[256, 128, 128, 64, 64, 64, 64],
                     inputConvKernelSizeList=[8,8,8,8,8,8,8], convMaxPoolSizeList=[None, 2, 4, 8, 16, 16, 16],
                     convDenseSizeList=[100,50,35,25,20,20,20],
-                    postConvDropout=None, preRNNDropout=0.5, numRNNLayers=2, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
+                    postConvDropout=None, preRNNDropout=0.5, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
                     postRNNDropout=0.5)
         model.summary()
 

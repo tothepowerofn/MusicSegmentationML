@@ -270,6 +270,20 @@ class MModel:
                               steps=steps)
         return results
 
+class SimpleGRU(MModel):
+    def build(self, inputDimension=10, numPerRecurrentLayer=60, numRecurrentLayers=2, outputDimension=6):
+        # Input Layer
+        inputLayer = Input(shape=(None, inputDimension))
+        currentRecurrentLayerInput = inputLayer
+        for i in range(0, numRecurrentLayers):
+            rnnLayer = GRU(numPerRecurrentLayer, activation='relu', return_sequences=True, implementation=2)(
+                currentRecurrentLayerInput)
+            currentRecurrentLayerInput = rnnLayer
+        outputLayer = Dense(outputDimension, activation='softmax', name='softmax')(currentRecurrentLayerInput)
+        # Defining the actual model
+        model = Model(inputs=inputLayer, outputs=outputLayer)
+        self.model = model
+
 class PoolingConvModelWithDropout(MModel):
     def build(self, dropoutRate=0.5, numInputs=400, perInputDimension=10, numPerRecurrentLayer=60, numRecurrentLayers=2,
               numDenseLayerUnits=40, outputDimension=6, numConvFiltersPerConv=250, kernelSizePerConv=5, stride=1):
@@ -452,7 +466,7 @@ class Simple2DTest(MModel):
 class Faded2DConvModel(MModel):
     def build(self, numClasses, inputShapeList, inputConvFilterNumList, inputConvKernelSizeList, convDenseSizeList, convMaxPoolSizeList,
               convDenseActivation="relu", postConvDropout=None, preRNNDenseSize=None, preRNNDenseActivation="relu",
-              preRNNDropout=None, numRNNLayers=2, rNNUnitsList=[100,100], rnnDropoutList = [0,0], postRNNDropout=None):
+              preRNNDropout=None, rNNUnitsList=[100,100], rnnDropoutList = [0,0], postRNNDropout=None):
         inputLayersList = []
         convSectionOutputList = []
         for i in range(len(inputShapeList)):
@@ -481,7 +495,7 @@ class Faded2DConvModel(MModel):
             next = Dropout(preRNNDropout)(next)
         reshaped = Reshape((1, next._keras_shape[1]))(next)
         next = reshaped
-        for i in range(0, numRNNLayers):
+        for i in range(0, len(rNNUnitsList)):
             next = GRU(rNNUnitsList[i], activation='relu', return_sequences=True, implementation=2, recurrent_dropout=rnnDropoutList[i])(
                 next)
         if postRNNDropout:
@@ -553,11 +567,11 @@ class ModelEvaluator:
         for i in range(0,k):
             print("Fold " + str(i) + ": " + str(bestAccs[i]))
         epochAccs = []
-        for i in range(0,epochs):
+        for i in range(0,len(accuraciesAll[0])):
             currSum = 0
             for j in range(0,k):
                 currSum += accuraciesAll[j][i]
-            epochAccs.append(currSum/len(accuraciesAll[j]))
+            epochAccs.append(currSum/len(accuraciesAll[0]))
         print("Your best epoch validation accuracy is " + str(max(epochAccs)) + ".")
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     def trainWithKFoldEval(self, model, k, modelName, epochs, outputExtraDim=True, saveBestOnly=True):
