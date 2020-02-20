@@ -1,6 +1,6 @@
 from keras.engine.saving import load_model
-from MusicSegmentationML.feat_extract import *
-from MusicSegmentationML.ml import *
+from feat_extract import *
+from ml import *
 
 extract = False
 train = True
@@ -8,12 +8,12 @@ load = False
 hop_length = 4096
 n_fft = 8192
 n_mfcc = 10
-poolSize = 10
-k = 4
+poolSize = 500
+k = 12
 numSegmentTypes = 6
 maxSegmentListLength = 15
-epochs = 10
-modelName = "PoolingModelWithDropout750"
+epochs = 15
+modelName = "FadingPoolingModelWithDropout500"
 
 if extract:
     songMetadataIndexerModule = SongMetadataIndexerModule()

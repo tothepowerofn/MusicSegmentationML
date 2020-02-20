@@ -1,5 +1,5 @@
-from MusicSegmentationML.feat_extract import *
-from MusicSegmentationML.ml import *
+from feat_extract import *
+from ml import *
 
 extract = False
 train = True
@@ -8,10 +8,10 @@ hop_length = 4096
 n_fft = 8192
 n_mfcc = 10
 poolSize = 10
-k = 12
+k = 24
 numSegmentTypes = 6
 maxSegmentListLength = 15
-epochs = 15
+epochs = 20
 modelName = "Faded2DConvModel"
 
 if extract:
@@ -31,10 +31,10 @@ if train:
     model = Faded2DConvModel(modelName)
     if not load:
         model.build(numClasses=numSegmentTypes, inputShapeList=[(26,10),(104,10),(208,10),(208,10),(208,10),(208,10),(208,10)],
-                    inputConvFilterNumList=[256, 128, 128, 64, 64, 64, 64],
-                    inputConvKernelSizeList=[8,8,8,8,8,8,8], convMaxPoolSizeList=[None, 2, 4, 8, 16, 16, 16],
-                    convDenseSizeList=[100,50,35,25,20,20,20],
-                    postConvDropout=None, preRNNDropout=0.5, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
+                    inputConvFilterNumList=[256, 128, 128, 128, 128, 128, 64],
+                    inputConvKernelSizeList=[8,8,8,8,8,8,8], convMaxPoolSizeList=[None, 2, 4, 4, 8, 8, 8],
+                    convDenseSizeList=[None,150,100,100,80,80,60],
+                    postConvDropout=0.35, preRNNDropout=0.5, rNNUnitsList=[100,100], rnnDropoutList=[0.5,0.5],
                     postRNNDropout=0.5)
         model.summary()
 

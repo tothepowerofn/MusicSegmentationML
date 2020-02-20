@@ -569,10 +569,17 @@ class ModelEvaluator:
         epochAccs = []
         for i in range(0,len(accuraciesAll[0])):
             currSum = 0
-            for j in range(0,k):
+            for j in range(0,len(accuraciesAll)):
                 currSum += accuraciesAll[j][i]
-            epochAccs.append(currSum/len(accuraciesAll[0]))
+            epochAccs.append(currSum/len(accuraciesAll))
         print("Your best epoch validation accuracy is " + str(max(epochAccs)) + ".")
+        print("These were your folds:")
+        currListNum = 0
+        for filenameList in filenameLists:
+            print(">> List " + str(currListNum))
+            for filename in filenameList:
+                print(filename)
+            currListNum += 1
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     def trainWithKFoldEval(self, model, k, modelName, epochs, outputExtraDim=True, saveBestOnly=True):
         generator = self.generator
