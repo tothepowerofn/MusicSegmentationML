@@ -13,3 +13,4 @@ pooledConvModel.h5
 /*.p
 hold_off/
 to_process/
+good_models/
