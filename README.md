@@ -4,7 +4,7 @@
 
 ## About
 
-MusicSegmentationML is a supervised sequence-to-sequence machine learning project that labels parts of songs (audio WAV files) with their corresponding song segment type (such as verse, chorus, bridge, etc.). You can read more about this project and how to use the code provided [here](tothepowerofn.io/musicsegmentationml/).
+MusicSegmentationML is a supervised sequence-to-sequence machine learning project that labels parts of songs (audio WAV files) with their corresponding song segment type (such as verse, chorus, bridge, etc.). You can read more about this project and how to use the code provided [here](https://tothepowerofn.io/musicsegmentationml/).
 
 This project is written in Python with Keras and provides functions and classes for extracting features (feat_extract.py), generating data to feed into the models (feat_extract.py), and training various models (ml.py).
 
